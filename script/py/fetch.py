@@ -1,0 +1,295 @@
+import sys
+import os
+import json
+import time
+import io
+# curl_cffi provides browser-impersonation capabilities via libcurl; required
+# to bypass TLS fingerprint checks that block standard Python HTTP clients.
+from curl_cffi import requests
+from PIL import Image
+
+def get_api_key():
+    # Resolve paths relative to this script's location so the project can be
+    # run from any working directory without hardcoded paths.
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    root_dir = os.path.dirname(os.path.dirname(script_dir))
+    # API token is stored as a plain-text file at config/token; absent file
+    # means anonymous access (empty Bearer token is sent).
+    token_path = os.path.join(root_dir, "config", "token")
+    if os.path.exists(token_path):
+        with open(token_path, "r") as f:
+            return f.read().strip()
+    return ""
+
+def get_doh_url():
+    # Read a custom DNS-over-HTTPS resolver URL from config/doh.
+    # DoH is used because standard UDP DNS may be blocked or poisoned in some
+    # network environments (e.g. ISPs that censor the target domain).
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    root_dir = os.path.dirname(os.path.dirname(script_dir))
+    doh_path = os.path.join(root_dir, "config", "doh")
+    if os.path.exists(doh_path):
+        with open(doh_path, "r") as f:
+            val = f.read().strip()
+            if val:
+                return val
+    # Fall back to Cloudflare's public DoH resolver if no config file exists.
+    return "https://1.1.1.1/dns-query"
+
+# Module-level constants built at import time so every request reuses them.
+API_KEY = get_api_key()
+DOH_URL = get_doh_url()
+HEADERS = {
+    # Bearer token is empty string when no API key is configured; the server
+    # may still accept the request but with lower rate limits.
+    "Authorization": f"Bearer {API_KEY}",
+    "Accept": "application/json, text/plain, */*",
+    # Mimic a real browser User-Agent to reduce the chance of bot detection.
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+}
+
+def out(obj):
+    # All inter-process communication happens via stdout as newline-delimited
+    # JSON objects. The flush is mandatory: without it, the Node.js parent
+    # process won't receive data until the Python process exits (buffering).
+    print(json.dumps(obj))
+    sys.stdout.flush()
+
+def fetch_data(code):
+    # Anchor all file paths to the repository root, not the current directory.
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    root_dir = os.path.dirname(os.path.dirname(script_dir))
+    # Each gallery gets its own subdirectory under cache/images/<id>/.
+    cache_dir = os.path.join(root_dir, "cache", "images", str(code))
+    os.makedirs(cache_dir, exist_ok=True)
+    # Ensure the web server process (which may run as a different user) can
+    # read the cached files by granting world-readable/writable permissions.
+    os.chmod(cache_dir, 0o777)
+    
+    api_url = f"https://nhentai.net/api/v2/galleries/{code}"
+    
+    try:
+        # Use a persistent curl_cffi Session so TLS and HTTP/2 state is reused
+        # across the multiple requests made for cover + every page image.
+        s = requests.Session()
+        # "chrome110" makes curl_cffi replicate Chrome 110's TLS fingerprint,
+        # JA3 hash, and HTTP/2 settings — the main bypass mechanism.
+        s.impersonate = "chrome110"
+        
+        res = s.get(api_url, headers=HEADERS, timeout=30, doh_url=DOH_URL)
+        if res.status_code != 200:
+            out({"error": f"HTTP {res.status_code}"})
+            return
+        
+        data = res.json()
+        title_data = data.get("title", {})
+        # Prefer the English title; fall back to the "pretty" (romanised)
+        # title if English is absent.
+        title_en = title_data.get("english") or title_data.get("pretty") or ""
+        title_jp = title_data.get("japanese") or ""
+        upload_date = data.get("upload_date", 0)
+        
+        # The API returns all metadata as a flat list of tag objects, each
+        # carrying a "type" field. We fan them out into typed buckets here.
+        tags_raw = data.get("tags", [])
+        tags_dict = {
+            "tags": [], "artists": [], "circles": [], "parodies": [], "characters": [], "languages": []
+        }
+        for t in tags_raw:
+            t_type = t.get("type")
+            t_name = t.get("name")
+            if not t_name: continue
+            if t_type == "tag": tags_dict["tags"].append(t_name)
+            elif t_type == "artist": tags_dict["artists"].append(t_name)
+            # "group" in the API corresponds to the "circle" concept (doujin circle/publisher).
+            elif t_type == "group": tags_dict["circles"].append(t_name)
+            elif t_type == "parody": tags_dict["parodies"].append(t_name)
+            elif t_type == "character": tags_dict["characters"].append(t_name)
+            elif t_type == "language": tags_dict["languages"].append(t_name)
+            
+        # Strip the synthetic "translated" entry; pick the first real language
+        # tag (e.g. "english", "japanese") as the display language.
+        langs = [l for l in tags_dict["languages"] if l != "translated"]
+        main_lang = langs[0] if langs else ("translated" if "translated" in tags_dict["languages"] else "")
+        
+        
+        cover_path_api = data.get("cover", {}).get("path")
+        local_cover_path = os.path.join(cache_dir, "cover.webp")
+        # Use a relative path for the cover so URLs work regardless of where
+        # the server is mounted.
+        local_cover_rel = f"cache/images/{code}/cover.webp"
+        
+        if cover_path_api and not os.path.exists(local_cover_path):
+            img_url = f"https://t.nhentai.net/{cover_path_api}"
+            c_res = s.get(img_url, timeout=30, doh_url=DOH_URL)
+            if c_res.status_code == 200:
+                with Image.open(io.BytesIO(c_res.content)) as img:
+                    # RGBA and palette-mode images cannot be saved as WebP in
+                    # lossy mode without first converting to RGB.
+                    if img.mode in ("RGBA", "P"):
+                        img = img.convert("RGB")
+                    # Normalise all covers to WebP at quality 85 for a consistent
+                    # format and smaller file size than JPEG/PNG.
+                    img.save(local_cover_path, "WEBP", quality=85)
+            else:
+                # Primary cover URL failed; fall back to the legacy CDN path
+                # constructed from media_id and the per-image type character.
+                media_id = data.get("media_id")
+                if media_id:
+                    # The API encodes image format as a single character:
+                    # 'j' = jpg, 'p' = png, 'w' = webp, 'g' = gif.
+                    ext = data.get("images", {}).get("cover", {}).get("t", "j")
+                    ext_map = {'j': 'jpg', 'p': 'png', 'w': 'webp', 'g': 'gif'}
+                    img_url = f"https://t.nhentai.net/galleries/{media_id}/cover.{ext_map.get(ext, 'jpg')}"
+                    c_res = s.get(img_url, timeout=30, doh_url=DOH_URL)
+                    if c_res.status_code == 200:
+                        with Image.open(io.BytesIO(c_res.content)) as img:
+                            if img.mode in ("RGBA", "P"):
+                                img = img.convert("RGB")
+                            img.save(local_cover_path, "WEBP", quality=85)
+        
+        # The v2 API returns pages directly; fall back to building page paths
+        # from the legacy images.pages list when the v2 field is absent.
+        pages = data.get("pages", [])
+        if not pages and "images" in data:
+            pages_raw = data["images"].get("pages", [])
+            ext_map = {'j': 'jpg', 'p': 'png', 'w': 'webp', 'g': 'gif'}
+            # Construct path objects in the same shape as the v2 "pages" list
+            # so the download loop below works identically for both API shapes.
+            pages = [{"path": f"galleries/{data['media_id']}/{i+1}.{ext_map.get(p.get('t', 'j'), 'jpg')}"} for i, p in enumerate(pages_raw)]
+            
+        import base64
+        cover_b64 = ""
+        if os.path.exists(local_cover_path):
+            # Encode the locally cached cover as base64 so the Node.js parent
+            # can embed it directly in the "meta" event payload without a
+            # separate HTTP round-trip to the server.
+            with open(local_cover_path, "rb") as f:
+                cover_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+        total_pages = len(pages)
+        # Emit the "meta" event first so the UI can display the title and cover
+        # immediately while the (potentially long) page downloads proceed.
+        out({
+            "type": "meta", 
+            "title": title_en if title_en else title_jp, 
+            "cover": local_cover_rel if os.path.exists(local_cover_path) else "", 
+            "cover_b64": cover_b64,
+            "total": total_pages
+        })
+        
+        local_pages = []
+        for i, page in enumerate(pages):
+            page_path_api = page.get("path")
+            if not page_path_api: continue
+            
+            # Strip query-string suffixes that may appear on CDN-signed URLs
+            # before using the extension to determine the local filename.
+            ext = page_path_api.split(".")[-1]
+            if "?" in ext:
+                ext = ext.split("?")[0]
+                
+            # All downloaded pages are converted to WebP and stored by 1-based
+            # page number, regardless of their original format.
+            local_page_path = os.path.join(cache_dir, f"{i+1}.webp")
+            local_page_rel = f"cache/images/{code}/{i+1}.webp"
+            
+            # Skip download if the file already exists; allows re-running the
+            # script to resume an interrupted download without re-fetching pages.
+            if not os.path.exists(local_page_path):
+                p_url = f"https://i.nhentai.net/{page_path_api}"
+                p_res = s.get(p_url, timeout=30, doh_url=DOH_URL)
+                if p_res.status_code == 200:
+                    try:
+                        with Image.open(io.BytesIO(p_res.content)) as img:
+                            if img.mode in ("RGBA", "P"):
+                                img = img.convert("RGB")
+                            img.save(local_page_path, "WEBP", quality=85)
+                    except Exception as e:
+                        # Log conversion failures to stderr; don't abort — the
+                        # page will simply be missing from the local cache.
+                        print(f"Error converting webp {p_url}: {e}", file=sys.stderr)
+                # Polite delay between image requests to avoid rate-limiting.
+                time.sleep(0.5)
+            local_pages.append(local_page_rel)
+            # Stream a "progress" event after every page so the caller can
+            # update a progress bar in real time.
+            out({"type": "progress", "current": i+1, "total": total_pages})
+            
+        final_data = {
+            "type": "done",
+            "data": {
+                "id": code,
+                "title": title_en,
+                "title_jp": title_jp,
+                "language": main_lang,
+                "scanlator": data.get("scanlator", ""),
+                "upload_date": upload_date,
+                "tags": tags_dict,
+                "cover": local_cover_rel if os.path.exists(local_cover_path) else None,
+                "pages": local_pages,
+                "page_count": len(local_pages),
+                # Store the full raw API response so the DB can be reconstructed
+                # from the cache without re-fetching if the DB is lost.
+                "raw_api_data": data
+            }
+        }
+        
+        # --fix mode: upsert the gallery record into the local SQLite DB.
+        # Useful when the DB was lost/corrupted but the image cache still exists.
+        if "--fix" in sys.argv:
+            import sqlite3
+            db_path = os.path.join(root_dir, "cache.sqlite")
+            conn = sqlite3.connect(db_path)
+            c = conn.cursor()
+            
+            d = final_data["data"]
+            db_code = str(d["id"])
+            created_at = int(time.time())
+            # Guard against clock skew: if the server's upload_date is in the
+            # future relative to now, set created_at one day after upload_date.
+            if created_at < upload_date:
+                created_at = upload_date + 86400
+                
+            # Determine whether to UPDATE an existing row or INSERT a new one.
+            c.execute("SELECT id FROM galleries WHERE id = ?", (db_code,))
+            if c.fetchone():
+                c.execute("""
+                    UPDATE galleries SET
+                    title = ?, title_jp = ?, language = ?, scanlator = ?,
+                    tags = ?, cover_path = ?, pages_paths = ?, page_count = ?,
+                    upload_date = ?, raw_api_data = ?
+                    WHERE id = ?
+                """, (d["title"], d["title_jp"], d["language"], d["scanlator"], json.dumps(d["tags"]), 
+                      d["cover"], json.dumps(d["pages"]), d["page_count"], d["upload_date"], json.dumps(d["raw_api_data"]), db_code))
+            else:
+                c.execute("""
+                    INSERT INTO galleries (id, title, title_jp, language, scanlator, tags, cover_path, pages_paths, page_count, upload_date, created_at, raw_api_data)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (db_code, d["title"], d["title_jp"], d["language"], d["scanlator"], json.dumps(d["tags"]), 
+                      d["cover"], json.dumps(d["pages"]), d["page_count"], d["upload_date"], created_at, json.dumps(d["raw_api_data"])))
+                
+            conn.commit()
+            conn.close()
+            out({"type": "info", "message": f"DB and cache for {db_code} have been fixed."})
+        
+        # "done" is the terminal event; the caller knows the stream is complete
+        # when it sees this type.
+        out(final_data)
+    except Exception as e:
+        out({"error": str(e)})
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        out({"error": "Missing ID"})
+        sys.exit(1)
+    
+    # Filter out flag arguments (--fix, etc.) to extract the positional gallery ID.
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    if not args:
+        out({"error": "Missing ID"})
+        sys.exit(1)
+        
+    code = args[0]
+    fetch_data(code)
+

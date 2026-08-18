@@ -1,0 +1,10 @@
+.git
+cache/images/*
+!cache/images/.gitkeep
+cache.sqlite
+database.db
+snapshot/*
+!snapshot/.gitkeep
+venv/
+__pycache__/
+*.pyc

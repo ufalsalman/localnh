@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# localnh Headless CLI Management Tool
+# Routes command-line arguments to the appropriate Python utility script using the project's venv.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON_EXEC="$SCRIPT_DIR/venv/bin/python"
+
+# Fallback to system python if virtual environment is not present
+if [ ! -f "$PYTHON_EXEC" ]; then
+    PYTHON_EXEC="python"
+fi
+
+# Subcommand dispatching
+if [ "$1" = "delete" ] || [ "$1" = "--delete" ] || [ "$1" = "-d" ]; then
+    shift
+    "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/delete.py" "$@"
+elif [ "$1" = "pdf" ] || [ "$1" = "--pdf" ]; then
+    shift
+    "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/pdf.py" "$@"
+elif [ "$1" = "snapshot" ]; then
+    shift
+    "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/snapshot.py" "$@"
+elif [ -z "$1" ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    echo "localnh CLI Tool"
+    echo "Usage:"
+    echo "  ./localnh <gallery_id>             Fetch a gallery by ID"
+    echo "  ./localnh delete <id>              Delete gallery entry and cached images"
+    echo "  ./localnh delete purge             Delete all galleries and cache"
+    echo "  ./localnh pdf <id> <out_path>      Export gallery to PDF"
+    echo "  ./localnh snapshot export          Export DB and cache to snapshot/"
+    echo "  ./localnh snapshot import <path>   Import snapshot from index.json"
+    exit 1
+elif [ "$1" = "fetch" ]; then
+    shift
+    "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/fetch.py" "$@"
+else
+    "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/fetch.py" "$@"
+fi

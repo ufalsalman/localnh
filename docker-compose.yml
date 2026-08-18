@@ -1,0 +1,16 @@
+services:
+  localnh:
+    build: .
+    container_name: localnh
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Persistent configuration (token, credentials, title, etc.)
+      - ./config:/var/www/html/config
+      # Persistent SQLite database file
+      - ./cache.sqlite:/var/www/html/cache.sqlite
+      # Persistent image cache
+      - ./cache:/var/www/html/cache
+      # Persistent snapshots / library exports
+      - ./snapshot:/var/www/html/snapshot

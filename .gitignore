@@ -1,0 +1,29 @@
+# Cache and Database
+cache.sqlite
+database.db
+*.sqlite
+*.db
+cache/images/*
+!cache/images/.gitkeep
+
+# Local Configurations (use config.example/ as templates)
+config/
+
+# Python Virtual Environment and Bytecode
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Snapshots and Exports
+snapshot/*
+!snapshot/.gitkeep
+*.zip
+*.cbz
+*.pdf
+
+# OS and IDE Files
+.DS_Store
+.idea/
+.vscode/
+*.swp
