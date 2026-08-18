@@ -61,7 +61,7 @@ Built with simplicity, speed, and privacy in mind. Written in vanilla PHP, SQLit
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/localnh.git
+   git clone https://tangled.org/ufal.my.id/localnh.git
    cd localnh
    ```
 
@@ -89,7 +89,7 @@ Built with simplicity, speed, and privacy in mind. Written in vanilla PHP, SQLit
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/localnh.git
+   git clone https://tangled.org/ufal.my.id/localnh.git
    cd localnh
    ```
 
