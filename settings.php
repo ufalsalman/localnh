@@ -84,7 +84,6 @@ if (isset($_GET['toggle'])) {
     // Whitelist: only these known toggle names are accepted to prevent arbitrary cookie writes.
     if (in_array($setting, ['dark_mode', 'dynamic_color', 'blur_covers'])) {
         $default = ($setting === 'blur_covers') ? 'off' : 'on';
-        $default = 'on';
         $current = isset($_COOKIE[$setting]) ? $_COOKIE[$setting] : $default;
         $new = ($current === 'on') ? 'off' : 'on';
         // Cookie is set for 1 year (365 * 86400 seconds).
