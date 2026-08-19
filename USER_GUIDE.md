@@ -131,6 +131,7 @@ You can export galleries for offline reading in third-party comic apps:
 Customize your viewing experience at `/settings`:
 
 - **Dark Mode**: Toggle between dark background (`#111`) and light background (`#fff`).
+- **Cover Blur**: Blurs all cover thumbnails on the home grid and gallery pages for privacy when browsing in public places.
 - **Reading Order**:
   - `Left-to-Right (LTR)`: Standard Western reading order.
   - `Right-to-Left (RTL)`: Traditional Japanese manga reading order (tapping left goes forward).

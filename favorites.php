@@ -22,7 +22,7 @@ function getThemeVars($bgColor = null) {
     $darkMode = (isset($_COOKIE['dark_mode']) ? $_COOKIE['dark_mode'] : 'on') === 'on';
     // Cover blurring is only applied when the user is authenticated ($isLoggedIn);
     // this prevents unauthenticated visitors from toggling the blur setting server-side.
-    $blurCovers = (isset($_COOKIE['blur_covers']) && $_COOKIE['blur_covers'] === 'on' && !empty($isLoggedIn)) ? '25px' : '0px';
+    $blurCovers = (isset($_COOKIE['blur_covers']) && $_COOKIE['blur_covers'] === 'on') ? '25px' : '0px';
     if ($bgColor === null) {
         $bgColor = $darkMode ? '#111' : '#fff';
     }

@@ -23,7 +23,7 @@ if (!function_exists('getThemeVars')) {
 function getThemeVars($bgColor = null) {
     global $isLoggedIn;
     $darkMode = (isset($_COOKIE['dark_mode']) ? $_COOKIE['dark_mode'] : 'on') === 'on';
-    $blurCovers = (isset($_COOKIE['blur_covers']) && $_COOKIE['blur_covers'] === 'on' && !empty($isLoggedIn)) ? '25px' : '0px';
+    $blurCovers = (isset($_COOKIE['blur_covers']) && $_COOKIE['blur_covers'] === 'on') ? '25px' : '0px';
     if ($bgColor === null) {
         $bgColor = $darkMode ? '#111' : '#fff';
     }

@@ -20,7 +20,7 @@ function getThemeVars($bgColor = null) {
     // dark_mode cookie defaults to 'on'; the site is dark-themed by default.
     $darkMode = (isset($_COOKIE['dark_mode']) ? $_COOKIE['dark_mode'] : 'on') === 'on';
     // Cover blur is a logged-in-only feature; the cookie is ignored for unauthenticated users.
-    $blurCovers = (isset($_COOKIE['blur_covers']) && $_COOKIE['blur_covers'] === 'on' && !empty($isLoggedIn)) ? '25px' : '0px';
+    $blurCovers = (isset($_COOKIE['blur_covers']) && $_COOKIE['blur_covers'] === 'on') ? '25px' : '0px';
     if ($bgColor === null) {
         $bgColor = $darkMode ? '#111' : '#fff';
     }

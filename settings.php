@@ -18,7 +18,7 @@ function getThemeVars($bgColor = null) {
     global $isLoggedIn;
     $darkMode = (isset($_COOKIE['dark_mode']) ? $_COOKIE['dark_mode'] : 'on') === 'on';
     // blur_covers only takes effect when the admin is logged in.
-    $blurCovers = (isset($_COOKIE['blur_covers']) && $_COOKIE['blur_covers'] === 'on' && !empty($isLoggedIn)) ? '25px' : '0px';
+    $blurCovers = (isset($_COOKIE['blur_covers']) && $_COOKIE['blur_covers'] === 'on') ? '25px' : '0px';
     if ($bgColor === null) {
         $bgColor = $darkMode ? '#111' : '#fff';
     }
@@ -82,7 +82,8 @@ if (isset($_GET['logout'])) {
 if (isset($_GET['toggle'])) {
     $setting = $_GET['toggle'];
     // Whitelist: only these known toggle names are accepted to prevent arbitrary cookie writes.
-    if (in_array($setting, ['dark_mode', 'dynamic_color'])) {
+    if (in_array($setting, ['dark_mode', 'dynamic_color', 'blur_covers'])) {
+        $default = ($setting === 'blur_covers') ? 'off' : 'on';
         $default = 'on';
         $current = isset($_COOKIE[$setting]) ? $_COOKIE[$setting] : $default;
         $new = ($current === 'on') ? 'off' : 'on';
@@ -157,11 +158,11 @@ if (file_exists($faviconFile)) {
     <div class='settings-content'>
         <h2>settings</h2>
         <p class='ui-text'>dark mode <a href='/settings?toggle=dark_mode'><button><?= htmlspecialchars($darkMode) ?></button></a></p>
-        <p class='ui-text'>dynamic color on entry page <a href='/settings?toggle=dynamic_color'><button><?= htmlspecialchars($dynamicColor) ?></button></a></p>
-        <p class='ui-text'>flip page order <a href='/settings?toggle=flip_page_order'><button><?= htmlspecialchars($flipPageOrder) ?></button></a></p>
+        <p class='ui-text'>dynamic color on gallery page <a href='/settings?toggle=dynamic_color'><button><?= htmlspecialchars($dynamicColor) ?></button></a></p>
+        <p class='ui-text'>reader page order <a href='/settings?toggle=flip_page_order'><button><?= htmlspecialchars($flipPageOrder) ?></button></a></p>
+        <p class='ui-text'>blur cover images <a href='/settings?toggle=blur_covers'><button><?= htmlspecialchars($blurCovers) ?></button></a></p>
         <?php if ($isLoggedIn): ?>
-        <p class='ui-text'>blur all cover images <a href='/settings?toggle=blur_covers'><button><?= htmlspecialchars($blurCovers) ?></button></a></p>
-        <p class='ui-text'>enable archive by public <a href='/settings?toggle=public_archive'><button><?= htmlspecialchars($publicArchive) ?></button></a></p>
+        <p class='ui-text'>allow archive by public <a href='/settings?toggle=public_archive'><button><?= htmlspecialchars($publicArchive) ?></button></a></p>
         <p class='ui-text'>admin logged in as <?= htmlspecialchars($validUser) ?> <a href='/settings?logout=1'><button>logout</button></a></p>
         <?php /* else: ?>
         <p class='ui-text'>for admins <a href='/admin'><button>login</button></a></p>

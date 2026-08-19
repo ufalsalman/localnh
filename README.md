@@ -137,6 +137,9 @@ Built with simplicity, speed, and privacy in mind. Written in vanilla PHP, SQLit
 # Fetch and archive a gallery by ID:
 ./localnh 123456
 
+# Display library statistics (titles, space used, latest activity):
+./localnh stats
+
 # Export gallery to PDF:
 ./localnh pdf 123456 /path/to/output.pdf
 
