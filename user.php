@@ -116,7 +116,7 @@ if (file_exists($faviconFile)) {
             this website doesn't have online account feature.<br>
             keep your user file safe.<br>
             restoring user file with a new one will replace the current session.<br>
-            please keep in that in mind.
+            please keep that in mind.
         </p>
     </div>
     </main>
