@@ -105,6 +105,7 @@ All incoming HTTP requests are processed through `index.php`:
 | `/rss` | `rss.php` | RSS 2.0 XML feed of the latest 50 archives |
 | `/random` | `index.php` | Redirects to a randomly chosen local gallery |
 | `/user` | `user.php` | Local session manager, JSON export/import, profile name |
+| `/stats` | `stats.php` | Library statistics |
 | `/settings` | `settings.php` | Display preferences (theme, reading order) and admin toggles |
 | `/admin` | `admin.php` | Admin authentication login |
 | `/api/autocomplete` | `index.php` | Live JSON autocomplete suggestions |

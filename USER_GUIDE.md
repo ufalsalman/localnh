@@ -27,6 +27,7 @@ This guide covers how to browse, read, search, archive, export, and manage your 
   - `oldest - uploaded`: Oldest original releases first.
 - **Directory (`/directory`)**: Browse and discover entries categorized by tags, artists, characters, parodies, and circles.
 - **Random (`/random`)**: Click "random" in the footer menu to immediately jump to a random locally archived gallery.
+- **Library Stats (`/stats`)**: View total archived gallery count, disk storage space used and latest activity date by the local cache.
 - **RSS Feed (`/rss`)**: Subscribe to the XML feed using your favorite RSS reader to receive notifications when new galleries are archived.
 
 ---

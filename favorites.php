@@ -157,6 +157,7 @@ $canArchive = ($publicArchive === 'on' || !empty($isLoggedIn));
             <a href='/rss' class='ui-text'>rss</a> &nbsp;&nbsp;&nbsp;&nbsp; 
             <a href='/random' class='ui-text'>random</a> &nbsp;&nbsp;&nbsp;&nbsp; 
             <a href='/user' class='ui-text'>user</a> &nbsp;&nbsp;&nbsp;&nbsp; 
+            <a href='/stats' class='ui-text'>stats</a> &nbsp;&nbsp;&nbsp;&nbsp; 
             <a href='/settings' class='ui-text'>settings</a>
         </div>
     </div>
