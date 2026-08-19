@@ -92,7 +92,7 @@ You can jump directly to any page number by appending the page to the URL:
 
 localnh includes personal bookmarking and reading statistics that run entirely inside your browser without sending personal data to the server.
 
-- **Favorite Button**: Click "favorite" on any gallery page to bookmark it. View your collection on the `/favorites` page.
+- **Favorite Button**: Click "favorite" on any gallery page to bookmark it. View your collection on the `/favorites` page. If you unfavorite a gallery that has recorded reading counts, a confirmation prompt will appear to prevent accidental loss of your reading count.
 - **Cum Counter**: Click "cum" to record a reading completion session. The button dynamically tracks your total count (e.g., `cummed 3x`).
 - **Orphaned Bookmarks (`/favorites/orphan`)**: If a gallery is deleted from the server but still exists in your browser bookmarks, localnh flags it as an "orphan" and lets you view the cached metadata or re-fetch it.
 
@@ -104,13 +104,13 @@ Because favorites and reading history are stored on your local browser device (`
 
 ### Creating a Backup
 1. Go to `/user` from the footer menu.
-2. Click **export session**.
+2. Click **backup**.
 3. A JSON backup file containing your profile name, favorites list, and reading history will be downloaded to your device.
 
 ### Restoring a Backup
 1. Go to `/user`.
-2. Click **Choose File** under the restore section, select your previously exported `.json` file, and click **restore session**.
-3. Your bookmarks and counts will be merged and restored immediately.
+2. Click **restore**, select your previously exported `.json` backup file from your device.
+3. Your profile name, display preferences, and bookmarks will be merged and restored immediately.
 
 ---
 
@@ -130,8 +130,9 @@ You can export galleries for offline reading in third-party comic apps:
 
 Customize your viewing experience at `/settings`:
 
-- **Dark Mode**: Toggle between dark background (`#111`) and light background (`#fff`).
-- **Cover Blur**: Blurs all cover thumbnails on the home grid and gallery pages for privacy when browsing in public places.
-- **Reading Order**:
-  - `Left-to-Right (LTR)`: Standard Western reading order.
-  - `Right-to-Left (RTL)`: Traditional Japanese manga reading order (tapping left goes forward).
+- **dark mode**: Toggle between dark background (`#111`) and light background (`#fff`).
+- **dynamic color on gallery page**: Dynamically tints the gallery page background using the dominant color of the cover thumbnail.
+- **reader page order**:
+  - `ltr`: Standard Western left-to-right reading order.
+  - `rtl`: Traditional Japanese manga right-to-left reading order (tapping left goes forward).
+- **blur cover images**: Blurs all cover thumbnails on the home grid and gallery pages for privacy when browsing in public places.

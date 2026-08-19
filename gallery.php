@@ -482,9 +482,10 @@ $langUrl = urlencode($langText);
                 <a href='/download/<?= $id ?>'><button class='action-btn'>download</button></a>
                 <a href='https://nhentai.net/g/<?= $id ?>/' target='_blank' rel='noreferrer'><button class='action-btn'>nhentai</button></a>
                 <?php if (!empty($isLoggedIn)): ?>
-                <a href='/g/<?= $id ?>?action=delete' onclick="return confirm('delete this gallery?');"><button class='action-btn'>delete</button></a>
+                <button id='delete-btn' class='action-btn'>delete</button>
                 <?php endif; ?>
             </div>
+            <p id='gallery-feedback' class='ui-text user-feedback'></p>
         </div>
     </div>
     <div id='preview-container'>

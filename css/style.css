@@ -170,6 +170,8 @@ main { max-width: 1000px; margin: 0 auto; padding: 20px 20px 60px 20px; }
 .user-action-group { display: flex; gap: 5px; margin-top: 15px; align-items: center; flex-wrap: wrap; }
 .user-action-group button, .user-form button { margin-left: 0; }
 .feedback-text { margin-left: 5px; }
+.user-feedback { margin-top: 12px; margin-bottom: 0; line-height: 1.5; }
+.user-feedback:empty { display: none; }
 .user-desc { margin-top: 20px; line-height: 1.6; max-width: 600px; }
 
 /* Favorites UI */

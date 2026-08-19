@@ -95,21 +95,20 @@ if (file_exists($faviconFile)) {
             </div>
             <div class='user-save-row'>
                 <button type='submit' id='save-btn' class='action-btn'>save</button>
-                <span id='save-feedback' class='ui-text feedback-text'></span>
             </div>
         </form>
 
         <div class='user-action-group'>
             <button type='button' id='reset-favs-btn' class='action-btn'>reset favorites</button>
-            <span id='reset-feedback' class='ui-text feedback-text'></span>
         </div>
 
         <div class='user-action-group'>
             <button type='button' id='backup-btn' class='action-btn'>backup</button>
             <button type='button' id='restore-btn' class='action-btn'>restore</button>
             <input type='file' id='restore-file-input' class='hidden' accept='.json'>
-            <span id='action-feedback' class='ui-text feedback-text'></span>
         </div>
+
+        <p id='user-feedback' class='ui-text user-feedback'></p>
 
         <p class='ui-text user-desc'>
             backup your session as a file if you want to keep your favorites.<br>
@@ -128,9 +127,7 @@ if (file_exists($faviconFile)) {
         const STORAGE_KEY_FAVS = 'localnh_favorites';
 
         const usernameInput = document.getElementById('username-input');
-        const saveFeedback = document.getElementById('save-feedback');
-        const resetFeedback = document.getElementById('reset-feedback');
-        const actionFeedback = document.getElementById('action-feedback');
+        const feedbackEl = document.getElementById('user-feedback');
         const backupBtn = document.getElementById('backup-btn');
         const restoreBtn = document.getElementById('restore-btn');
         const resetFavsBtn = document.getElementById('reset-favs-btn');
@@ -151,37 +148,16 @@ if (file_exists($faviconFile)) {
             document.cookie = name + '=' + value + ';expires=' + d.toUTCString() + ';path=/';
         }
 
-        let saveTimer;
-        // Shows a status message then clears it after 3 seconds to avoid stale feedback.
-        function showSaveFeedback(text) {
-            saveFeedback.textContent = text;
-            clearTimeout(saveTimer);
+        let feedbackTimer;
+        // Shows a status message then clears it after the specified duration.
+        function showFeedback(text, duration = 3000) {
+            if (!feedbackEl) return;
+            feedbackEl.textContent = text || '';
+            clearTimeout(feedbackTimer);
             if (text) {
-                saveTimer = setTimeout(() => {
-                    saveFeedback.textContent = '';
-                }, 3000);
-            }
-        }
-
-        let resetTimer;
-        function showResetFeedback(text) {
-            resetFeedback.textContent = text;
-            clearTimeout(resetTimer);
-            if (text) {
-                resetTimer = setTimeout(() => {
-                    resetFeedback.textContent = '';
-                }, 4000);
-            }
-        }
-
-        let actionTimer;
-        function showActionFeedback(text) {
-            actionFeedback.textContent = text;
-            clearTimeout(actionTimer);
-            if (text) {
-                actionTimer = setTimeout(() => {
-                    actionFeedback.textContent = '';
-                }, 3000);
+                feedbackTimer = setTimeout(() => {
+                    feedbackEl.textContent = '';
+                }, duration);
             }
         }
 
@@ -207,9 +183,9 @@ if (file_exists($faviconFile)) {
                 existing.username = username;
                 existing.updated_at = new Date().toISOString();
                 localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(existing));
-                showSaveFeedback('saved!');
+                showFeedback('saved!');
             } catch (e) {
-                showSaveFeedback('failed to save');
+                showFeedback('failed to save');
             }
         }
 
@@ -266,9 +242,9 @@ if (file_exists($faviconFile)) {
                 downloadAnchor.click();
                 downloadAnchor.remove();
 
-                showActionFeedback('backup created!');
+                showFeedback('backup created!');
             } catch (e) {
-                showActionFeedback('failed to create backup');
+                showFeedback('failed to create backup');
             }
         });
 
@@ -341,9 +317,9 @@ if (file_exists($faviconFile)) {
                         });
                     }
 
-                    showActionFeedback('backup restored!');
+                    showFeedback('backup restored!');
                 } catch (err) {
-                    showActionFeedback('error restoring backup');
+                    showFeedback('error restoring backup');
                 }
                 // Reset the file input so the same file can be re-selected if needed.
                 fileInput.value = '';
@@ -359,7 +335,7 @@ if (file_exists($faviconFile)) {
         resetFavsBtn.addEventListener('click', () => {
             if (!resetFavsConfirmState) {
                 resetFavsConfirmState = true;
-                showResetFeedback('do you want to reset favorites?');
+                showFeedback('do you want to reset favorites? click again to confirm', 4000);
                 clearTimeout(resetFavsTimeout);
                 resetFavsTimeout = setTimeout(() => {
                     resetFavsConfirmState = false;
@@ -368,7 +344,7 @@ if (file_exists($faviconFile)) {
                 resetFavsConfirmState = false;
                 clearTimeout(resetFavsTimeout);
                 localStorage.removeItem(STORAGE_KEY_FAVS);
-                showResetFeedback('favorites cleared!');
+                showFeedback('favorites cleared!');
             }
         });
 

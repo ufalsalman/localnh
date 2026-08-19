@@ -52,8 +52,24 @@ if (showMoreBtn) {
     const STORAGE_KEY_FAVS = 'localnh_favorites';
     const favBtn = document.getElementById('fav-btn');
     const cumBtn = document.getElementById('cum-btn');
+    const feedbackEl = document.getElementById('gallery-feedback');
 
     if (!window.galleryId) return;
+
+    let unfavConfirmState = false;
+    let unfavTimeout;
+
+    function showFeedback(text, duration = 4000) {
+        if (!feedbackEl) return;
+        feedbackEl.textContent = text || '';
+        clearTimeout(unfavTimeout);
+        if (text) {
+            unfavTimeout = setTimeout(() => {
+                feedbackEl.textContent = '';
+                unfavConfirmState = false;
+            }, duration);
+        }
+    }
 
     // Retrieve and parse favorites array, supporting migration from legacy key-value format
     function getFavorites() {
@@ -95,14 +111,25 @@ if (showMoreBtn) {
         }
     }
 
-    // Toggle favorite bookmark on/off
+    // Toggle favorite bookmark on/off (with warning confirmation if reading count > 0)
     if (favBtn) {
         favBtn.addEventListener('click', function() {
             let favs = getFavorites();
             const index = favs.findIndex(f => String(f.id) === String(window.galleryId));
             if (index > -1) {
+                const item = favs[index];
+                const cumCount = parseInt(item.cum_count || 0, 10);
+                if (cumCount > 0 && !unfavConfirmState) {
+                    unfavConfirmState = true;
+                    showFeedback('unfavoriting will reset count, click again to confirm', 4000);
+                    return;
+                }
+                unfavConfirmState = false;
+                showFeedback('');
                 favs.splice(index, 1);
             } else {
+                unfavConfirmState = false;
+                showFeedback('');
                 const tax = window.galleryTaxonomy || {};
                 favs.unshift({
                     id: String(window.galleryId),
@@ -125,6 +152,8 @@ if (showMoreBtn) {
     // Increment cum reading counter
     if (cumBtn) {
         cumBtn.addEventListener('click', function() {
+            unfavConfirmState = false;
+            showFeedback('');
             let favs = getFavorites();
             const index = favs.findIndex(f => String(f.id) === String(window.galleryId));
             if (index > -1) {
@@ -147,6 +176,30 @@ if (showMoreBtn) {
             }
             saveFavorites(favs);
             updateButtons();
+        });
+    }
+
+    // Admin delete button with 2-step confirmation pattern
+    const deleteBtn = document.getElementById('delete-btn');
+    let deleteConfirmState = false;
+    let deleteTimeout;
+
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', function() {
+            unfavConfirmState = false;
+            if (!deleteConfirmState) {
+                deleteConfirmState = true;
+                showFeedback('do you want to delete this gallery? click again to confirm', 4000);
+                clearTimeout(deleteTimeout);
+                deleteTimeout = setTimeout(() => {
+                    deleteConfirmState = false;
+                }, 4000);
+            } else {
+                deleteConfirmState = false;
+                clearTimeout(deleteTimeout);
+                showFeedback('deleting gallery...');
+                window.location.href = '/g/' + window.galleryId + '?action=delete';
+            }
         });
     }
 

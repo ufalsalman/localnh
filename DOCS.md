@@ -13,6 +13,7 @@ localnh/
 ├── reader.php            # Distraction-free manga reader interface
 ├── directory.php         # Taxonomy index and category browsing
 ├── favorites.php         # User favorites and orphaned bookmarks manager
+├── stats.php             # Library statistics (titles, storage, latest activity)
 ├── settings.php          # Cookie-based settings and admin configuration
 ├── user.php              # Client session backup, restore, and user profile management
 ├── admin.php             # Admin authentication portal
@@ -41,6 +42,7 @@ localnh/
 │       ├── fetch.py      # Core crawler & image downloader (curl_cffi + Pillow)
 │       ├── pdf.py        # PDF compilation utility
 │       ├── delete.py     # Gallery & cache deletion tool
+│       ├── stats.py      # Terminal library statistics utility
 │       └── snapshot.py   # Full library export/import tool
 │
 ├── static/               # Static assets directory
