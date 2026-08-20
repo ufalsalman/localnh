@@ -110,7 +110,7 @@ if (!$g) {
     if ($archiveDisabled || $missingToken) {
         if ($archiveDisabled) {
             $errTitle = 'title not found';
-            $errMsg = "the thing you are looking for not found. you will be redirected to the homepage soon.";
+            $errMsg = "the thing you are looking for is not found. you will be redirected to the homepage soon.";
         } else {
             $errTitle = 'token not found';
             // The token file (config/token) must contain a valid API token for fetch.py to work.
@@ -195,7 +195,7 @@ if (!$g) {
                 document.querySelector('.container').innerHTML = `
                     <div class='settings-content'>
                         <h2>title not found</h2>
-                        <p class='ui-text'>the thing you are looking for not found. you will be redirected to the homepage soon.</p>
+                        <p class='ui-text'>the thing you are looking for is not found. you will be redirected to the homepage soon.</p>
                     </div>
                 `;
                 document.title = 'title not found - ' + " . json_encode($siteName) . ";
