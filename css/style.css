@@ -8,7 +8,13 @@ button { background: var(--btn-bg); color: var(--btn-text); border: 1px solid va
 input, select { border: 1px solid var(--input-border); color: var(--input-text); background: var(--input-bg); }
 select { cursor: pointer; appearance: auto; -webkit-appearance: auto; }
 input:focus, select:focus { outline: none; }
-main { max-width: 1000px; margin: 0 auto; padding: 20px 20px 60px 20px; }
+main { max-width: 1200px; margin: 0 auto; padding: 20px 20px 60px 20px; }
+@media (min-width: 1281px) {
+    main {
+        width: calc(100% - 80px);
+        max-width: 1440px;
+    }
+}
 .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 12px 0; }
 .topbar h1 { margin: 0; }
 .topbar-controls { display: flex; gap: 5px; align-items: center; }
@@ -43,11 +49,11 @@ main { max-width: 1000px; margin: 0 auto; padding: 20px 20px 60px 20px; }
 .item { text-align: center; }
 .item img { width: 100%; height: auto; display: block; filter: blur(var(--cover-blur, 0px)); clip-path: inset(0); }
 .item-title { margin-top: 6px; }
-@media (max-width: 1200px) {
+@media (max-width: 1360px) {
     .grid { grid-template-columns: repeat(5, 1fr); gap: 15px; }
     .related-section .item:nth-child(6) { display: none; }
 }
-@media (max-width: 1000px) {
+@media (max-width: 1200px) {
     main { padding: 10px 10px 40px 10px; }
 }
 @media (max-width: 900px) {
@@ -71,7 +77,6 @@ main { max-width: 1000px; margin: 0 auto; padding: 20px 20px 60px 20px; }
 }
 @media (max-width: 600px) {
     .grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-    main { padding: 10px 10px 40px 10px; }
     .topbar-controls { flex-wrap: wrap; gap: 5px; }
     
     .search-input { width: 160px; }
