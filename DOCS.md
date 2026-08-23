@@ -100,7 +100,7 @@ All incoming HTTP requests are processed through `index.php`:
 | `/` | `index.php` | Main catalogue list, search (`?q=`), and metadata filters (`?a=`, `?t=`, etc.) |
 | `/g/<id>` | `gallery.php` | Gallery detail page and dynamic live download streamer |
 | `/g/<id>/<page>` | `reader.php` | Dedicated page viewer |
-| `/download/<id>` | `gallery.php` | Download format selector (ZIP / CBZ / PDF) |
+| `/download/<id>` | `gallery.php` | Download format selector (ZIP / CBZ / PDF / HTML) |
 | `/directory` | `directory.php` | Directory listing by category (`?cat=tags`, `?cat=artists`, etc.) |
 | `/favorites` | `favorites.php` | Local favorites and bookmark grid |
 | `/favorites/orphan` | `favorites.php` | Orphaned favorites detector and recovery tools |
@@ -160,8 +160,9 @@ The scraper uses **`curl_cffi`** with Chrome browser impersonation to fetch meta
 
 ---
 
-## Client-Side Storage (`localStorage`)
+## Client-Side Storage & Cookies
 
+### 1. `localStorage` Keys
 localnh stores user data on the client device to avoid requiring tracking accounts or server databases for personal data:
 
 | Key | Format | Description |
@@ -170,3 +171,13 @@ localnh stores user data on the client device to avoid requiring tracking accoun
 | `localnh_favorites` | JSON Array | Array of bookmark objects containing metadata and `cum_count` |
 
 Users can back up or restore their full session at any time from the `/user` page via JSON snapshots.
+
+### 2. Browser Preference Cookies
+
+| Cookie | Values | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `dark_mode` | `on` / `off` | `on` | Dark theme mode |
+| `dynamic_color` | `on` / `off` | `on` | Gallery background dynamic tinting |
+| `flip_page_order` | `ltr` / `rtl` | `ltr` | Reader page order direction |
+| `blur_covers` | `on` / `off` | `off` | Privacy thumbnail blurring |
+| `home_sort` | `na` / `nu` | `na` | Persistent homepage sorting (`newest - archived` or `newest - uploaded`) |

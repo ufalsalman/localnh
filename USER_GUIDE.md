@@ -21,10 +21,11 @@ This guide covers how to browse, read, search, archive, export, and manage your 
 
 - **Home Page (`/`)**: Displays all locally archived galleries in a responsive thumbnail grid.
 - **Sorting**: Use the sort dropdown above the grid to arrange entries:
-  - `newest - archived`: Sorted by the date the gallery was saved to localnh.
+  - `newest - archived`: Sorted by the date the gallery was saved to localnh (default).
   - `oldest - archived`: Oldest local additions first.
   - `newest - uploaded`: Sorted by original release date on nhentai.
   - `oldest - uploaded`: Oldest original releases first.
+  *Note: Selecting either `newest - archived` or `newest - uploaded` on the homepage automatically saves your preferred sorting order to browser cookies, which is restored when returning to the home catalogue.*
 - **Directory (`/directory`)**: Browse and discover entries categorized by tags, artists, characters, parodies, and circles.
 - **Random (`/random`)**: Click "random" in the footer menu to immediately jump to a random locally archived gallery.
 - **Library Stats (`/stats`)**: View total archived gallery count, disk storage space used and latest activity date by the local cache.
@@ -123,6 +124,7 @@ You can export galleries for offline reading in third-party comic apps:
    - **ZIP**: Standard compressed archive containing all WebP images.
    - **CBZ**: Comic Book ZIP archive compatible with comic and manga reader applications (e.g., Tachiyomi, Kuro Reader, CDisplayEx).
    - **PDF**: Single consolidated PDF document rendered with Pillow.
+   - **HTML**: Standalone, single-file offline web viewer. All metadata, thumbnails, and full-resolution WebP images are embedded as Base64 data URIs. It can be opened directly from any mobile or desktop file manager without requiring a server or internet connection.
 
 ---
 

@@ -17,6 +17,9 @@ if [ "$1" = "delete" ] || [ "$1" = "--delete" ] || [ "$1" = "-d" ]; then
 elif [ "$1" = "pdf" ] || [ "$1" = "--pdf" ]; then
     shift
     "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/pdf.py" "$@"
+elif [ "$1" = "html" ] || [ "$1" = "--html" ]; then
+    shift
+    "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/html.py" "$@"
 elif [ "$1" = "snapshot" ]; then
     shift
     "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/snapshot.py" "$@"
@@ -31,6 +34,7 @@ elif [ -z "$1" ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "  ./localnh delete <id>              Delete gallery entry and cached images"
     echo "  ./localnh delete purge             Delete all galleries and cache"
     echo "  ./localnh pdf <id> <out_path>      Export gallery to PDF"
+    echo "  ./localnh html <id> <out_path>     Export gallery to HTML"
     echo "  ./localnh snapshot export          Export DB and cache to snapshot/"
     echo "  ./localnh snapshot import <path>   Import snapshot from index.json"
     exit 1

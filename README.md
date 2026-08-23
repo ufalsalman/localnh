@@ -26,7 +26,7 @@ Built with simplicity, speed, and privacy in mind. Written in vanilla PHP, SQLit
   - Full-text search with instant autocomplete suggestions.
   - Quick external links to nhentai search directly from filter headers.
 - **Multi-Format Export**
-  - Export and download galleries as **ZIP**, **CBZ** (Comic Book Archive), or **PDF** (rendered with Pillow).
+  - Export and download galleries as **ZIP**, **CBZ** (Comic Book Archive), **PDF** (rendered with Pillow), or standalone **HTML** (self-contained offline web reader with embedded WebP Base64).
 - **Local Storage & Privacy**
   - User session, reading count ("cum count"), and favorites stored locally in browser `localStorage`.
   - JSON backup and restore functionality to easily transfer your library across devices without requiring cloud accounts.
@@ -36,7 +36,7 @@ Built with simplicity, speed, and privacy in mind. Written in vanilla PHP, SQLit
 - **RSS 2.0 Feed**
   - Full RSS feed available at `/rss` to stay updated with newly archived entries.
 - **Powerful CLI Utility**
-  - Manage archives, export snapshots, and convert to PDF directly from terminal using `./localnh`.
+  - Manage archives, export snapshots, convert to PDF, and generate standalone HTML directly from terminal using `./localnh`.
 
 ---
 
@@ -142,6 +142,9 @@ Built with simplicity, speed, and privacy in mind. Written in vanilla PHP, SQLit
 
 # Export gallery to PDF:
 ./localnh pdf 123456 /path/to/output.pdf
+
+# Export gallery to standalone offline HTML:
+./localnh html 123456 /path/to/output.html
 
 # Delete a specific gallery and cached images:
 ./localnh delete 123456

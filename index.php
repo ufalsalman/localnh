@@ -549,9 +549,25 @@ $totalPages = max(1, ceil($totalItems / $perPage));
 $page = min($page, $totalPages);
 $offset = ($page - 1) * $perPage;
 
-// Sort order driven by the 'sort' GET parameter.
-// 'na' (newest archived / default) shows the most recently downloaded gallery first.
-$sort = $_GET['sort'] ?? 'na';
+// Determine homepage status (pure index view without search terms or filters)
+$isHomePage = ($filterType === '' && $q === '');
+$savedHomeSort = (isset($_COOKIE['home_sort']) && in_array($_COOKIE['home_sort'], ['na', 'nu'])) ? $_COOKIE['home_sort'] : 'na';
+
+if ($isHomePage) {
+    if (isset($_GET['sort'])) {
+        $sort = $_GET['sort'];
+        // Persist only 'newest' preferences across sessions so temporary 'oldest' browsing doesn't overwrite it
+        if (in_array($sort, ['na', 'nu'])) {
+            setcookie('home_sort', $sort, time() + 365 * 86400, '/');
+            $savedHomeSort = $sort;
+        }
+    } else {
+        $sort = $savedHomeSort;
+    }
+} else {
+    $sort = $_GET['sort'] ?? 'na';
+}
+
 $orderBy = "created_at DESC";
 switch ($sort) {
     case 'oa': $orderBy = "created_at ASC"; break;   // oldest archived first

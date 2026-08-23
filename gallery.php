@@ -88,6 +88,23 @@ if (isset($_GET['download'])) {
         } else {
             die("PDF generation failed.");
         }
+    } elseif ($format === 'html') {
+        // Standalone offline HTML generation is delegated to script/py/html.py.
+        // It embeds all metadata, thumbnails, and page WebP images as Base64 data URIs.
+        $tmp = tempnam(sys_get_temp_dir(), 'html');
+        $pythonExec = file_exists(__DIR__ . "/venv/bin/python") ? (__DIR__ . "/venv/bin/python") : "python";
+        $cmd = escapeshellarg($pythonExec) . " " . escapeshellarg(__DIR__ . "/script/py/html.py") . " " . escapeshellarg($id) . " " . escapeshellarg($tmp);
+        exec($cmd, $out, $ret);
+        if ($ret === 0 && file_exists($tmp)) {
+            header("Content-Type: text/html; charset=UTF-8");
+            header("Content-Disposition: attachment; filename=\"{$title}.html\"");
+            header("Content-Length: " . filesize($tmp));
+            readfile($tmp);
+            unlink($tmp);
+            exit;
+        } else {
+            die("HTML generation failed.");
+        }
     }
 }
 
@@ -404,6 +421,7 @@ if (isset($isDownloadPage) && $isDownloadPage) {
                 <button onclick="startDownload('zip')" class='action-btn'>zip</button>
                 <button onclick="startDownload('cbz')" class='action-btn'>cbz</button>
                 <button onclick="startDownload('pdf')" class='action-btn'>pdf</button>
+                <button onclick="startDownload('html')" class='action-btn'>html</button>
             </div>
             <div class='back-link-wrapper'><a href='/g/<?= $id ?>' class='ui-text'>back to gallery</a></div>
         </div>
