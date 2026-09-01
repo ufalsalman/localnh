@@ -160,6 +160,9 @@ if (!$g) {
 
     // Render the fetch UI (cover placeholder, progress indicator) before starting the download.
     // The browser will receive and execute <script> tags injected into the still-open response.
+    // Set response headers before emitting any HTML so PHP can still modify them.
+    header('X-Accel-Buffering: no');
+    header('Cache-Control: no-cache');
     echo "<!DOCTYPE html>
 <html>
 <head>
@@ -226,12 +229,9 @@ if (!$g) {
 ";
     // Disable PHP's execution time limit — the fetch can take several minutes for large galleries.
     set_time_limit(0);
-    // X-Accel-Buffering: no tells nginx to not buffer the response so <script> tags stream live.
-    header('X-Accel-Buffering: no');
-    header('Cache-Control: no-cache');
     // Send a padding block to force some proxies and browsers to start rendering the document.
     echo str_repeat(' ', 8192) . "\n";
-    ob_flush();
+    if (ob_get_level() > 0) ob_flush();
     flush();
 
     // ignore_user_abort(true) keeps PHP running even if the browser disconnects,
@@ -261,7 +261,8 @@ if (!$g) {
                     if (isset($decoded['error'])) {
                         $err = addslashes($decoded['error']);
                         echo "<script>showError('$err');</script>\n";
-                        ob_flush(); flush();
+                        if (ob_get_level() > 0) ob_flush();
+                        flush();
                         die();
                     }
                     if (isset($decoded['type'])) {
@@ -289,7 +290,7 @@ if (!$g) {
                 // Send another padding block after each line to keep the connection alive
                 // and force the browser to process newly injected <script> tags.
                 echo str_repeat(' ', 8192) . "\n";
-                ob_flush();
+                if (ob_get_level() > 0) ob_flush();
                 flush();
                 
                 // If the user has navigated away, kill the child process and clean up
