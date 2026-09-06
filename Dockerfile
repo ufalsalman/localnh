@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libjpeg62-turbo-dev \
     libpng-dev \
     libfreetype6-dev \
+    libvips-tools \
     libzip-dev \
     curl \
     ca-certificates \

@@ -138,7 +138,7 @@ if (!$g) {
 <head>
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <title>{$errTitle} - " . htmlspecialchars($siteName) . "</title>
-    <link rel='stylesheet' href='/css/style.css'>
+    <link rel='stylesheet' href='/css/style.css?v=3'>
     {$faviconHtml}
     <meta http-equiv='refresh' content='5;url=/' />
     <style>:root { {$themeCss} }</style>
@@ -168,7 +168,7 @@ if (!$g) {
 <head>
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <title>fetch {$id} - " . htmlspecialchars($siteName) . "</title>
-    <link rel='stylesheet' href='/css/style.css'>
+    <link rel='stylesheet' href='/css/style.css?v=3'>
     {$faviconHtml}
     <style>
         :root {
@@ -399,7 +399,7 @@ if (isset($isDownloadPage) && $isDownloadPage) {
     <meta property="og:image" content="<?= $ogImage ?>">
     <meta property="og:url" content="<?= $ogUrl ?>">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel='stylesheet' href='/css/style.css'>
+    <link rel='stylesheet' href='/css/style.css?v=3'>
     <?= $faviconHtml ?>
     <style>
         :root {
@@ -453,7 +453,7 @@ if (isset($isDownloadPage) && $isDownloadPage) {
     <meta property="og:image" content="<?= $ogImage ?>">
     <meta property="og:url" content="<?= $ogUrl ?>">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel='stylesheet' href='/css/style.css'>
+    <link rel='stylesheet' href='/css/style.css?v=3'>
     <?= $faviconHtml ?>
     <style>
         :root {
@@ -628,7 +628,7 @@ $relatedGalleries = array_slice($scored, 0, 6);
             'language' => $g['language'] ?? ''
         ]) ?>;
     </script>
-    <script src="/script/js/gallery.js?v=2"></script>
+    <script src="/script/js/gallery.js?v=4"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const input = document.getElementById('search-input');

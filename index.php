@@ -222,8 +222,12 @@ function getThemeVars($bgColor = null) {
 $requestUri = $_SERVER['REQUEST_URI'];
 $path = parse_url($requestUri, PHP_URL_PATH);
 
+// Route: /thumbnail — generates a small WebP response without persisting a second image.
+if ($path === '/thumbnail' || $path === '/thumbnail/') {
+    require 'thumbnail.php';
+    exit;
 // Route: /g/<id> — individual gallery detail page.
-if (preg_match('#^/g/(\d+)/?$#', $path, $matches)) {
+} elseif (preg_match('#^/g/(\d+)/?$#', $path, $matches)) {
     $id = $matches[1];
     require 'gallery.php';
     exit;

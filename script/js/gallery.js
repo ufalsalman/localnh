@@ -9,6 +9,60 @@ const showMoreBtn = document.getElementById('show-more-btn');
 let displayedCount = 0;
 // Render pages in batches to avoid freezing the browser when a gallery has hundreds of images
 const CHUNK_SIZE = 30;
+// Keep thumbnail requests below the PHP-FPM worker limit. Native lazy-loading is
+// intentionally avoided because images without an intrinsic height can leave the
+// whole grid collapsed and never enter the browser's lazy-load area.
+const MAX_CONCURRENT_THUMBNAILS = 4;
+const THUMBNAIL_RETRY_DELAYS = [600, 1500];
+const thumbnailQueue = [];
+let activeThumbnailLoads = 0;
+
+function pumpThumbnailQueue() {
+    while (activeThumbnailLoads < MAX_CONCURRENT_THUMBNAILS && thumbnailQueue.length > 0) {
+        const job = thumbnailQueue.shift();
+        const retrySuffix = job.attempt > 0 ? '&retry=' + job.attempt : '';
+
+        activeThumbnailLoads++;
+        job.img.onload = function() {
+            job.img.onload = null;
+            job.img.onerror = null;
+            activeThumbnailLoads--;
+            pumpThumbnailQueue();
+        };
+        job.img.onerror = function() {
+            job.img.onload = null;
+            job.img.onerror = null;
+            job.img.removeAttribute('src');
+            job.img.removeAttribute('srcset');
+            activeThumbnailLoads--;
+
+            if (job.attempt < THUMBNAIL_RETRY_DELAYS.length) {
+                const delay = THUMBNAIL_RETRY_DELAYS[job.attempt];
+                window.setTimeout(function() {
+                    thumbnailQueue.push({
+                        img: job.img,
+                        base: job.base,
+                        attempt: job.attempt + 1
+                    });
+                    pumpThumbnailQueue();
+                }, delay);
+            } else {
+                job.img.alt = 'page thumbnail failed to load';
+            }
+
+            pumpThumbnailQueue();
+        };
+
+        job.img.srcset = job.base + '&w=320' + retrySuffix + ' 320w, '
+            + job.base + '&w=640' + retrySuffix + ' 640w';
+        job.img.src = job.base + '&w=320' + retrySuffix;
+    }
+}
+
+function queueThumbnail(img, base) {
+    thumbnailQueue.push({ img: img, base: base, attempt: 0 });
+    pumpThumbnailQueue();
+}
 
 function renderNextChunk() {
     // Cap the end index so we never exceed the total page count
@@ -19,12 +73,15 @@ function renderNextChunk() {
         a.href = '/g/' + window.galleryId + '/' + (i + 1);
         
         const img = document.createElement('img');
-        img.src = window.allPages[i];
-        // Native lazy-loading defers off-screen image fetches
-        img.loading = 'lazy';
+        const pageNumber = i + 1;
+        const thumbnailBase = '/thumbnail?id=' + encodeURIComponent(window.galleryId)
+            + '&page=' + pageNumber + '&mode=fit';
+        img.sizes = '(max-width: 768px) 50vw, 240px';
+        img.decoding = 'async';
         
         a.appendChild(img);
         grid.appendChild(a);
+        queueThumbnail(img, thumbnailBase);
     }
     displayedCount = end;
     
@@ -250,4 +307,3 @@ if (showMoreBtn) {
         }
     });
 })();
-

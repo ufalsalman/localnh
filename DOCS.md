@@ -98,6 +98,7 @@ All incoming HTTP requests are processed through `index.php`:
 | URL Pattern | Handler | Purpose |
 | :--- | :--- | :--- |
 | `/` | `index.php` | Main catalogue list, search (`?q=`), and metadata filters (`?a=`, `?t=`, etc.) |
+| `/thumbnail?id=<id>&w=<width>` | `thumbnail.php` | On-demand WebP thumbnail (`320` or `640` px) with browser caching; no derivative file is stored |
 | `/g/<id>` | `gallery.php` | Gallery detail page and dynamic live download streamer |
 | `/g/<id>/<page>` | `reader.php` | Dedicated page viewer |
 | `/download/<id>` | `gallery.php` | Download format selector (ZIP / CBZ / PDF / HTML) |
@@ -112,6 +113,12 @@ All incoming HTTP requests are processed through `index.php`:
 | `/admin` | `admin.php` | Admin authentication login |
 | `/api/autocomplete` | `index.php` | Live JSON autocomplete suggestions |
 | `/api/favorites` | `index.php` | Batch validation of stored client favorite IDs against the database |
+
+---
+
+## Thumbnail Endpoint
+
+The page-preview grid on `/g/<id>` uses `GET /thumbnail` so it does not load every full-resolution reader image. The endpoint accepts a numeric `id`, an optional reader-style `page` (`0` selects the cover), `w=320|640`, and `mode=cover|fit`. Gallery previews use `mode=fit` to preserve each page's complete aspect ratio without cropping. It generates WebP bytes through libvips, validates that the database path stays under `cache/images`, and uses a private one-day browser cache with ETag revalidation. Generated thumbnails are never written to disk.
 
 ---
 
