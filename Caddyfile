@@ -1,12 +1,10 @@
 :8080 {
-    # Set to your localnh installation directory
     root * /var/www/html
 
-    # Direct static file serving for cached images
-    @cached path /cache/*
-    file_server @cached
-
-    # PHP-FPM fastcgi backend
-    php_fastcgi 127.0.0.1:9000
-    file_server
+    # Only index.php is an HTTP entry point. It validates public asset paths,
+    # including resolved symlink targets, before serving any file.
+    route {
+        rewrite * /index.php
+        php_fastcgi 127.0.0.1:9000
+    }
 }

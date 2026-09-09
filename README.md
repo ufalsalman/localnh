@@ -200,3 +200,24 @@ All settings are stored as plain text files in the `config/` directory:
 
 This project is licensed under the [MIT License](LICENSE).
 
+
+### HTTP file access policy
+
+The supplied Caddy configuration routes every request through `index.php`.
+Only that PHP file is a public entry point; use `/admin`, `/settings`, and
+`/thumbnail` rather than requesting their `.php` files directly. Other web
+servers must also route **all** requests through `index.php` without serving
+existing files or executing other PHP scripts first. For local development,
+keep the router argument in `php -S 127.0.0.1:8080 index.php`.
+
+Static files are restricted to CSS in `/css/`, browser JavaScript in
+`/script/js/`, and images (`webp`, `png`, `jpg`, `jpeg`, `gif`, `svg`, `ico`)
+in `/cache/images/` and `/static/`. Place custom local favicons in `/static/`;
+external favicon URLs still work. Hidden paths, ambiguous paths, unknown file
+types, and symlinks resolving outside their permitted directory are rejected.
+Do not place private content in these public asset directories.
+
+This initial security change also sends static images through PHP. It favors
+one consistent access policy; direct static serving can be reintroduced after
+private data is moved outside a dedicated public web root. Authentication and
+CSRF changes are separate follow-up work.

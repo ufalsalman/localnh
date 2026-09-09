@@ -217,10 +217,19 @@ function getThemeVars($bgColor = null) {
 }
 
 // --- Front-controller routing ---
-// index.php acts as a single entry point via .htaccess / nginx rewrite rules.
+// Caddy and the documented PHP development server route all requests here.
 // parse_url strips the query string before regex matching so parameters don't leak into path checks.
 $requestUri = $_SERVER['REQUEST_URI'];
-$path = parse_url($requestUri, PHP_URL_PATH);
+$rawPath = parse_url($requestUri, PHP_URL_PATH);
+$path = is_string($rawPath) ? rawurldecode($rawPath) : '';
+// Reject ambiguous paths before routing: hidden/dot segments, backslashes,
+// repeated slashes, control bytes, and remaining (double-encoded) escapes.
+if ($path === '' || $path[0] !== '/'
+    || preg_match('#(?:^|/)\\.|//|[\\\\\\x00-\\x1f\\x7f%]#', $path)) {
+    http_response_code(404);
+    echo 'Not Found';
+    exit;
+}
 
 // Route: /thumbnail — generates a small WebP response without persisting a second image.
 if ($path === '/thumbnail' || $path === '/thumbnail/') {
@@ -385,34 +394,38 @@ if ($path === '/thumbnail' || $path === '/thumbnail/') {
     // Cap at 10 to keep the dropdown manageable.
     echo json_encode(array_slice($results, 0, 10));
     exit;
-// Static file serving: map URL paths to physical files under __DIR__.
-// This lets the built-in PHP dev server (or any rewrite-all setup) serve CSS/JS/images.
+// Static files are public only inside these directories, with known types.
 } elseif ($path !== '/' && $path !== '/index.php') {
-    $filePath = __DIR__ . $path;
-    if (file_exists($filePath) && is_file($filePath)) {
-        $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-        // Explicit MIME map is preferred over mime_content_type() for consistent charset headers.
-        $mimeMap = [
-            'css'  => 'text/css; charset=utf-8',
-            'js'   => 'application/javascript; charset=utf-8',
-            'webp' => 'image/webp',
-            'png'  => 'image/png',
-            'jpg'  => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'gif'  => 'image/gif',
-            'svg'  => 'image/svg+xml',
-            'json' => 'application/json; charset=utf-8',
-            'ico'  => 'image/x-icon',
-        ];
-        // Fall back to mime_content_type() for unlisted extensions, then a generic binary type.
-        $mime = $mimeMap[$ext] ?? (mime_content_type($filePath) ?: 'application/octet-stream');
-        header("Content-Type: $mime");
-        readfile($filePath);
-        exit;
+    $imageTypes = [
+        'webp' => 'image/webp', 'png' => 'image/png',
+        'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
+        'gif' => 'image/gif', 'svg' => 'image/svg+xml', 'ico' => 'image/x-icon',
+    ];
+    $publicAssets = [
+        '/css/' => ['css' => 'text/css; charset=utf-8'],
+        '/script/js/' => ['js' => 'application/javascript; charset=utf-8'],
+        '/cache/images/' => $imageTypes,
+        '/static/' => $imageTypes,
+    ];
+    $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+    foreach ($publicAssets as $prefix => $types) {
+        if (!str_starts_with($path, $prefix) || !isset($types[$ext])) continue;
+        $filePath = realpath(__DIR__ . $path);
+        // Compare with the literal allowed directory under the application root.
+        // A symlink to a private file or another directory must not bypass this.
+        if ($filePath !== false && str_starts_with($filePath, __DIR__ . $prefix)
+            && !preg_match('#(?:^|/)\\.#', substr($filePath, strlen(__DIR__)))
+            && isset($types[strtolower(pathinfo($filePath, PATHINFO_EXTENSION))])
+            && is_file($filePath) && is_readable($filePath)) {
+            header('Content-Type: ' . $types[strtolower(pathinfo($filePath, PATHINFO_EXTENSION))]);
+            header('X-Content-Type-Options: nosniff');
+            header('Content-Length: ' . filesize($filePath));
+            if ($_SERVER['REQUEST_METHOD'] !== 'HEAD') readfile($filePath);
+            exit;
+        }
     }
-    // No matching file or directory — return a plain 404 response.
     http_response_code(404);
-    echo "Not Found";
+    echo 'Not Found';
     exit;
 }
 
