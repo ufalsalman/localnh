@@ -70,13 +70,13 @@ Built with simplicity, speed, and privacy in mind. Written in vanilla PHP, SQLit
    cp -r config.example config
    touch cache.sqlite
    ```
-   Add your nhentai API token to `config/token`.
+Add your nhentai API token to `config/token`.
 
 3. Start the container:
    ```bash
    docker compose up -d
    ```
-   Open `http://localhost:8080` in your browser.
+Open `http://localhost:8080` in your browser.
 
 4. Using CLI via Docker:
    ```bash
@@ -103,7 +103,7 @@ Built with simplicity, speed, and privacy in mind. Written in vanilla PHP, SQLit
    ```bash
    cp -r config.example config
    ```
-   Configure your credentials and nhentai API token:
+Configure your credentials and nhentai API token:
    - **`config/token`**: Paste your nhentai API bearer token.
    - **`config/credentials`**: Set your admin username and bcrypt password hash:
      ```bash
@@ -125,7 +125,7 @@ Built with simplicity, speed, and privacy in mind. Written in vanilla PHP, SQLit
      ```bash
      php -S 127.0.0.1:8080 index.php
      ```
-   Open `http://localhost:8080` in your browser.
+Open `http://localhost:8080` in your browser.
 
 ---
 
@@ -178,7 +178,48 @@ All settings are stored as plain text files in the `config/` directory:
 
 ---
 
+## Security and deployment
+
+### HTTP file access policy
+
+The supplied Caddy configuration routes every request through `index.php`. Only that PHP file is a public entry point; use `/admin`, `/settings`, and `/thumbnail` rather than requesting their `.php` files directly. Other web servers must also route **all** requests through `index.php` without serving existing files or executing other PHP scripts first. For local development, keep the router argument in `php -S 127.0.0.1:8080 index.php`.
+
+Static files are restricted to CSS in `/css/`, browser JavaScript in `/script/js/`, and images (`webp`, `png`, `jpg`, `jpeg`, `gif`, `svg`, `ico`) in `/cache/images/` and `/static/`. Place custom local favicons in `/static/`; external favicon URLs still work. Hidden paths, ambiguous paths, unknown file types, and symlinks resolving outside their permitted directory are rejected. Do not place private content in these public asset directories.
+
+This initial security change also sends static images through PHP. It favors one consistent access policy; direct static serving can be reintroduced after private data is moved outside a dedicated public web root. Authentication and CSRF changes are separate follow-up work.
+
+### Docker build context
+
+Private configuration (`config/`, `.env*`), cache, snapshots, runtime/session storage, SQLite databases and their sidecar files are excluded from the image. Local tests, plans, personal files, and backup directories are excluded as well. `config.example/` remains in the image so the entrypoint can initialize an empty configuration directory. Existing mounted configuration is not overwritten. The Dockerfile creates empty cache, snapshot, and configuration directories; these do not require copying host data into the image.
+
+Keep real credentials and application data in the runtime mounts documented above. Build exclusions prevent inclusion in new images; they do not remove private data from images built previously. Arbitrarily named secret/backup files outside the excluded locations still need to be kept out of the build context.
+
+### Login sessions
+
+Login now issues a random, server-validated session lasting at most 30 days. Existing browsers must log in once after upgrading. Logout revokes that browser's session; other devices remain signed in. The server stores token hashes only. Changes to `config/credentials` revoke existing sessions when next observed, including changes that preserve the file timestamp. Missing or invalid credentials never grant access. Restoring a prior file after an observed change does not restore old sessions. Changes that occur and are undone entirely between requests cannot be detected; revoke sessions explicitly when restoring configuration.
+
+Docker Compose persists sessions separately at `./sessions`, mounted outside the web root at `/var/lib/localnh/sessions`. For a manual PHP installation, sessions are stored in `sessions/` alongside the application; set `LOCALNH_SESSION_DIR` to an absolute private directory to override it. Use the same directory setting for PHP and CLI snapshot operations, and ensure the PHP service can write there. Do not publish, export, or restore session storage as collection data. Snapshot import revokes sessions before replacing the collection database; exports contain only collection data. If session storage is unavailable, HTTP requests fail with 503 instead of granting administrative access.
+
+Cookies use `HttpOnly` and `SameSite=Lax`. HTTP local deployment works without TLS, a domain, or a proxy. Cookie `Secure` is decided per request, so the same instance can support HTTP localhost and a public HTTPS hostname simultaneously. Direct HTTPS is detected from the web server, including a host tunnel connecting to a separate HTTPS origin. That deployment can leave proxy trust empty; see [the HTTPS origin recipe](DEPLOYMENT.md#host-proxy-or-tunnel-with-an-https-origin). For HTTPS terminated by a reverse proxy with an HTTP connection to localnh, configure `LOCALNH_TRUSTED_PROXIES` with the exact immediate proxy IP(s), comma-separated, as seen by the application. The default empty value trusts no forwarding headers. IPv4 and IPv6 addresses are supported; CIDRs and hostnames are intentionally not accepted.
+
+The trusted proxy must overwrite `X-Forwarded-Proto` with the actual client scheme, not pass through a client-supplied value. An HTTPS value from any other peer is ignored. Do not trust a Docker gateway or loopback address shared by both the proxy and untrusted traffic. Use an HTTPS origin instead, or put the proxy on a dedicated network with a stable, distinct address first. Preserve the immediate peer in `REMOTE_ADDR`; if custom web-server configuration rewrites it to the original client IP, this trust check cannot identify the proxy correctly. Public HTTPS deployment needs this configuration verified before use; an unconfigured proxy is treated as HTTP.
+
+For example, if an isolated proxy has the fixed address `172.30.50.2`, set:
+
+```yaml
+environment:
+  LOCALNH_TRUSTED_PROXIES: "172.30.50.2"
+```
+
+That address is only an example, not a subnet/address to copy blindly. Keep the value empty for local-only installs. Recreate the container after changing it. The previous experimental `LOCALNH_COOKIE_SECURE` switch is no longer used: a global switch cannot describe mixed HTTP/HTTPS access. HTTPS-only installations should enforce redirects at their public proxy, while local HTTP access may stay available separately.
+
+Use separate hostnames for mixed access (such as `localhost` locally and your public HTTPS domain). Browsers scope cookies by hostname, not port; HTTP and HTTPS on the *same* hostname can conflict with an existing Secure cookie. No special-case trust is granted based on a client-controlled Host value, and the implementation does not rely on browser exceptions for Secure on localhost. HTTP itself does not encrypt credentials or cookies. Session revocation does not replace CSRF protection: migration of state-changing GET actions is a separate follow-up step.
+
+---
+
 ## Documentation
+
+- **[Deployment Guide](DEPLOYMENT.md)**: Local HTTP, public HTTPS, mixed access, optional host tunnels, certificate trust, verification, and rollback.
 
 - **[User Guide](USER_GUIDE.md)**: Detailed instructions on browsing, searching, keyboard reader controls, bookmarking, backup/restore, and downloading galleries.
 - **[Technical Documentation](DOCS.md)**: Advanced architecture details, database schema, routing flow, and API endpoint documentation.
@@ -192,48 +233,10 @@ All settings are stored as plain text files in the `config/` directory:
 - **Python Libraries**:
   - [`curl_cffi`](https://github.com/lexiforest/curl_cffi) - Browser TLS fingerprinting & DoH client.
   - [`Pillow`](https://python-pillow.org) - Image processing & PDF generation.
-- **Development & AI Disclosure**: Developed with the assistance of **Antigravity CLI** powered by **Gemini 3.1 Pro** and **Gemini 3.7 Flash** models.
+- **Development & AI Disclosure**: Developed with the assistance of **Antigravity CLI** powered by **Gemini 3.1 Pro** and **Gemini 3.7 Flash** models and **ChatGPT Desktop** powered by **GPT-5.6 Sol** and **GPT-6 Astra** models.
 
 ---
 
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
-
-
-### HTTP file access policy
-
-The supplied Caddy configuration routes every request through `index.php`.
-Only that PHP file is a public entry point; use `/admin`, `/settings`, and
-`/thumbnail` rather than requesting their `.php` files directly. Other web
-servers must also route **all** requests through `index.php` without serving
-existing files or executing other PHP scripts first. For local development,
-keep the router argument in `php -S 127.0.0.1:8080 index.php`.
-
-Static files are restricted to CSS in `/css/`, browser JavaScript in
-`/script/js/`, and images (`webp`, `png`, `jpg`, `jpeg`, `gif`, `svg`, `ico`)
-in `/cache/images/` and `/static/`. Place custom local favicons in `/static/`;
-external favicon URLs still work. Hidden paths, ambiguous paths, unknown file
-types, and symlinks resolving outside their permitted directory are rejected.
-Do not place private content in these public asset directories.
-
-This initial security change also sends static images through PHP. It favors
-one consistent access policy; direct static serving can be reintroduced after
-private data is moved outside a dedicated public web root. Authentication and
-CSRF changes are separate follow-up work.
-
-### Docker build context
-
-Private configuration (`config/`, `.env*`), cache, snapshots, runtime/session
-storage, SQLite databases and their sidecar files are excluded from the image.
-Local tests, plans, personal files, and backup directories are excluded as well.
-`config.example/` remains in the image so the entrypoint can initialize an empty
-configuration directory. Existing mounted configuration is not overwritten.
-The Dockerfile creates empty cache, snapshot, and configuration directories;
-these do not require copying host data into the image.
-
-Keep real credentials and application data in the runtime mounts documented
-above. Build exclusions prevent inclusion in new images; they do not remove
-private data from images built previously. Arbitrarily named secret/backup
-files outside the excluded locations still need to be kept out of the build
-context.

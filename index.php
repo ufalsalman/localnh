@@ -23,34 +23,7 @@ $db->exec("CREATE TABLE IF NOT EXISTS galleries (
 )
 ");
 
-// --- Authentication setup ---
-// Credentials live in config/credentials, one KEY=VALUE pair per line.
-// Expected format:
-//   USER=<username>
-//   PASS=<password hash>
-// If the file is absent, $validUser stays empty and auth is effectively disabled.
-$credsFile = __DIR__ . '/config/credentials';
-$validUser = '';
-$validHash = '';
-if (file_exists($credsFile)) {
-    // FILE_IGNORE_NEW_LINES strips trailing \r\n; FILE_SKIP_EMPTY_LINES skips blank lines.
-    $lines = file($credsFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        // strpos(...) === 0 confirms the line starts with the prefix (avoids partial matches).
-        if (strpos($line, 'USER=') === 0) $validUser = substr($line, 5);
-        if (strpos($line, 'PASS=') === 0) $validHash = substr($line, 5);
-    }
-}
-$isLoggedIn = false;
-if ($validUser !== '') {
-    // Cookie-based auth: the browser holds an md5 token derived from credentials + a fixed salt.
-    // md5 is intentionally lightweight here — this is a local/private archive, not a public service.
-    // The salt 'localnh_secret_salt' prevents trivial rainbow-table attacks on the stored cookie value.
-    $authSecret = md5($validUser . $validHash . 'localnh_secret_salt');
-    if (isset($_COOKIE['remote_auth']) && $_COOKIE['remote_auth'] === $authSecret) {
-        $isLoggedIn = true;
-    }
-}
+require_once __DIR__ . '/bootstrap.php';
 
 // --- Favicon config ---
 // config/favicon may contain a relative path (e.g. "img/icon.png") or an absolute/external URL.

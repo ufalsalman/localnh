@@ -4,6 +4,8 @@ import json
 import shutil
 import datetime
 import subprocess
+import sqlite3
+from pathlib import Path
 
 # Resolve the repository root from this file's location:
 # __file__ -> script/py/snapshot.py -> script/py -> script -> ROOT
@@ -83,6 +85,20 @@ def export_snapshot():
     print(f"[*] Created manifest: {index_file}")
     print(f"[*] Snapshot export completed successfully!")
 
+def revoke_login_sessions():
+    # Separate session storage is never restored with collection snapshots.
+    session_dir = os.environ.get('LOCALNH_SESSION_DIR') or os.path.join(BASE_DIR, 'sessions')
+    session_db = os.path.join(session_dir, 'sessions.sqlite')
+    try:
+        Path(session_db).stat()
+    except FileNotFoundError:
+        return
+    # Permission errors abort import; never treat unreadable storage as absent.
+    with sqlite3.connect(Path(session_db).resolve().as_uri() + '?mode=rw', uri=True, timeout=5) as sessions:
+        if sessions.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sessions'").fetchone():
+            sessions.execute('DELETE FROM sessions')
+
+
 def import_snapshot(index_path):
     if not os.path.exists(index_path):
         print(f"[!] Error: Index file not found at {index_path}")
@@ -114,6 +130,7 @@ def import_snapshot(index_path):
     db_dest = os.path.join(BASE_DIR, 'cache.sqlite')
     if os.path.exists(db_src):
         print(f"[*] Restoring database from {db_file}...")
+        revoke_login_sessions()
         shutil.copy2(db_src, db_dest)
     else:
         print(f"[!] Warning: Database file {db_file} not found in snapshot directory.")

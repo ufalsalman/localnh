@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/bootstrap.php';
 // These helpers are redeclared here with function_exists() guards so the file
 // can be served standalone or via the router without fatal redeclaration errors.
 if (!function_exists('getSiteName')) {
@@ -48,31 +49,9 @@ function getThemeVars($bgColor = null) {
 }
 }
 
-// Read admin credentials from the flat config file.
-// Expected format (one per line): USER=<username>  PASS=<bcrypt_hash>
-$credsFile = __DIR__ . '/config/credentials';
-$validUser = '';
-$validHash = '';
-if (file_exists($credsFile)) {
-    $lines = file($credsFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        if (strpos($line, 'USER=') === 0) $validUser = substr($line, 5);
-        if (strpos($line, 'PASS=') === 0) $validHash = substr($line, 5);
-    }
-}
-$isLoggedIn = false;
-// The auth cookie value is an MD5 of username + password-hash + a static salt.
-// This token is set on successful login (see admin.php) and validated on every request.
-// NOTE: MD5 is not used for password storage here — it's used as a simple session-token
-// derived from already-hashed credentials; $validHash itself is a bcrypt hash.
-$authSecret = md5($validUser . $validHash . 'localnh_secret_salt');
-if (isset($_COOKIE['remote_auth']) && $_COOKIE['remote_auth'] === $authSecret) {
-    $isLoggedIn = true;
-}
-
-// Logout: expire the auth cookie immediately by setting it to a past timestamp.
+// Logout revokes the server-side session. POST/CSRF migration follows separately.
 if (isset($_GET['logout'])) {
-    setcookie('remote_auth', '', time() - 3600, '/');
+    localnh_logout();
     header('Location: /');
     exit;
 }
@@ -162,7 +141,7 @@ if (file_exists($faviconFile)) {
         <p class='ui-text'>blur cover images <a href='/settings?toggle=blur_covers'><button><?= htmlspecialchars($blurCovers) ?></button></a></p>
         <?php if ($isLoggedIn): ?>
         <p class='ui-text'>allow archive by public <a href='/settings?toggle=public_archive'><button><?= htmlspecialchars($publicArchive) ?></button></a></p>
-        <p class='ui-text'>admin logged in as <?= htmlspecialchars($validUser) ?> <a href='/settings?logout=1'><button>logout</button></a></p>
+        <p class='ui-text'>admin logged in as <?= htmlspecialchars($authCredentials['user']) ?> <a href='/settings?logout=1'><button>logout</button></a></p>
         <?php /* else: ?>
         <p class='ui-text'>for admins <a href='/admin'><button>login</button></a></p>
         <?php */ endif; ?>

@@ -15,8 +15,18 @@ if [ -f "/var/www/html/cache.sqlite" ]; then
     chown www-data:www-data /var/www/html/cache.sqlite 2>/dev/null || true
 fi
 
+# Prepare only the dedicated session directory, including persistent mounts.
+# Keep this separate from collection backups. PHP and CLI must use the same
+# LOCALNH_SESSION_DIR; a persistent mount preserves logins across recreation.
+mkdir -p "$LOCALNH_SESSION_DIR"
+chown www-data:www-data "$LOCALNH_SESSION_DIR"
+chmod 700 "$LOCALNH_SESSION_DIR"
+
 # Start PHP-FPM daemon
 php-fpm -D
 
-# Start Caddy web server in foreground
+# Start Caddy web server in foreground. An optional deployment can mount a
+# custom Caddyfile here and persist Caddy CA data outside the source tree.
+# Cloudflare or any other host proxy is not started by this script.
+# See DEPLOYMENT.md for HTTPS origin setup and certificate verification.
 exec caddy run --config /var/www/html/Caddyfile --adapter caddyfile

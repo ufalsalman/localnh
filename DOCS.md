@@ -2,6 +2,8 @@
 
 This document provides a technical overview of localnh, covering its architecture, database design, routing mechanisms, API endpoints, and client-side data management.
 
+For installation topology, TLS origins, proxy trust, and operational rollback, see [DEPLOYMENT.md](DEPLOYMENT.md). Login session behavior is documented in [README.md](README.md#login-sessions).
+
 ---
 
 ## Architecture Overview
@@ -16,6 +18,7 @@ localnh/
 ├── stats.php             # Library statistics (titles, storage, latest activity)
 ├── settings.php          # Cookie-based settings and admin configuration
 ├── user.php              # Client session backup, restore, and user profile management
+├── bootstrap.php         # Shared server-side sessions and request scheme validation
 ├── admin.php             # Admin authentication portal
 ├── rss.php               # RSS 2.0 feed generator
 ├── localnh               # Headless CLI utility for management tasks

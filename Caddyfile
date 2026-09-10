@@ -1,10 +1,17 @@
+# Default HTTP listener; public TLS is optional. See DEPLOYMENT.md for a
+# separate HTTPS origin listener without changing this application source.
 :8080 {
     root * /var/www/html
 
     # Only index.php is an HTTP entry point. It validates public asset paths,
     # including resolved symlink targets, before serving any file.
     route {
+        # Preserve the incoming scheme before FastCGI's proxy rewrites headers.
+        # PHP still checks the immediate peer against LOCALNH_TRUSTED_PROXIES.
+        vars localnh_forwarded_proto {http.request.header.X-Forwarded-Proto}
         rewrite * /index.php
-        php_fastcgi 127.0.0.1:9000
+        php_fastcgi 127.0.0.1:9000 {
+            env LOCALNH_FORWARDED_PROTO {http.vars.localnh_forwarded_proto}
+        }
     }
 }

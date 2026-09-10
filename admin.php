@@ -3,7 +3,7 @@
  * Admin Authentication Portal
  * Handles login authentication against credentials configured in config/credentials.
  */
-session_start();
+require_once __DIR__ . '/bootstrap.php';
 
 // Helper to retrieve the custom site name or default to 'localnh'
 if (!function_exists('getSiteName')) {
@@ -55,34 +55,12 @@ function getThemeVars($bgColor = null) {
 
 $themeCss = getThemeVars();
 
-// Load configured admin credentials (USER=... and PASS=... with bcrypt hash)
-$credsFile = __DIR__ . '/config/credentials';
-$validUser = '';
-$validHash = '';
-if (file_exists($credsFile)) {
-    $lines = file($credsFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        if (strpos($line, 'USER=') === 0) $validUser = substr($line, 5);
-        if (strpos($line, 'PASS=') === 0) $validHash = substr($line, 5);
-    }
-}
-
-// Generate persistent cookie authentication token signature
-$isLoggedIn = false;
-$authSecret = md5($validUser . $validHash . 'localnh_secret_salt');
-
-if (isset($_COOKIE['remote_auth']) && $_COOKIE['remote_auth'] === $authSecret) {
-    $isLoggedIn = true;
-}
-
 // Process login submission
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'login') {
     $user = $_POST['user'] ?? '';
     $pass = $_POST['pass'] ?? '';
-    if ($user !== '' && $user === $validUser && password_verify($pass, $validHash)) {
-        // Set 30-day authentication cookie
-        setcookie('remote_auth', $authSecret, time() + 86400 * 30, '/');
+    if (is_string($user) && is_string($pass) && localnh_login($user, $pass)) {
         header('Location: /settings');
         exit;
     } else {

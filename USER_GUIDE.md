@@ -25,7 +25,7 @@ This guide covers how to browse, read, search, archive, export, and manage your 
   - `oldest - archived`: Oldest local additions first.
   - `newest - uploaded`: Sorted by original release date on nhentai.
   - `oldest - uploaded`: Oldest original releases first.
-  *Note: Selecting either `newest - archived` or `newest - uploaded` on the homepage automatically saves your preferred sorting order to browser cookies, which is restored when returning to the home catalogue.*
+*Note: Selecting either `newest - archived` or `newest - uploaded` on the homepage automatically saves your preferred sorting order to browser cookies, which is restored when returning to the home catalogue.*
 - **Directory (`/directory`)**: Browse and discover entries categorized by tags, artists, characters, parodies, and circles.
 - **Random (`/random`)**: Click "random" in the footer menu to immediately jump to a random locally archived gallery.
 - **Library Stats (`/stats`)**: View total archived gallery count, disk storage space used and latest activity date by the local cache.
@@ -84,8 +84,7 @@ Clicking any thumbnail or the "read" button opens the distraction-free reader in
 - **Auto-Centering**: The page view automatically scrolls to center the active image on your screen upon every page turn.
 
 ### Direct Page Navigation
-You can jump directly to any page number by appending the page to the URL:
-`/g/<gallery_id>/<page_number>` (e.g., `/g/123456/5`).
+You can jump directly to any page number by appending the page to the URL: `/g/<gallery_id>/<page_number>` (e.g., `/g/123456/5`).
 
 ---
 
@@ -138,3 +137,10 @@ Customize your viewing experience at `/settings`:
   - `ltr`: Standard Western left-to-right reading order.
   - `rtl`: Traditional Japanese manga right-to-left reading order (tapping left goes forward).
 - **blur cover images**: Blurs all cover thumbnails on the home grid and gallery pages for privacy when browsing in public places.
+
+
+## Login through local and public addresses
+
+A local installation can use HTTP on localhost without a domain or tunnel. Public installations should provide HTTPS. You can sign in through localhost and a different public hostname independently; ports alone do not separate cookies. Existing sessions need a new login after the server-side session upgrade. Logout revokes the current browser session; other devices remain signed in.
+
+For deployment configuration and troubleshooting (including an HTTP request sent to an HTTPS port), see [DEPLOYMENT.md](DEPLOYMENT.md).

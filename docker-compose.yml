@@ -3,8 +3,14 @@ services:
     build: .
     container_name: localnh
     restart: unless-stopped
+    # Host 8080 -> container HTTP 8080. For host-only access, bind
+    # "127.0.0.1:8080:8080" instead. HTTPS origin is optional: DEPLOYMENT.md.
     ports:
       - "8080:8080"
+    environment:
+      # Empty for local HTTP or a direct HTTPS origin. Do not trust a shared
+      # Docker gateway just because a host tunnel appears to come from it.
+      LOCALNH_TRUSTED_PROXIES: ""
     volumes:
       # Persistent configuration (token, credentials, title, etc.)
       - ./config:/var/www/html/config
@@ -14,3 +20,5 @@ services:
       - ./cache:/var/www/html/cache
       # Persistent snapshots / library exports
       - ./snapshot:/var/www/html/snapshot
+      # Separate session storage; never exported with the collection database.
+      - ./sessions:/var/lib/localnh/sessions

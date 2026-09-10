@@ -39,6 +39,13 @@ RUN mkdir -p /var/www/html/cache/images \
     && chmod +x /var/www/html/localnh \
     && chmod +x /var/www/html/docker-entrypoint.sh
 
+# Persist session storage separately from collection data and exports.
+ENV LOCALNH_SESSION_DIR=/var/lib/localnh/sessions LOCALNH_TRUSTED_PROXIES=""
+RUN mkdir -p /var/lib/localnh/sessions \
+    && chown www-data:www-data /var/lib/localnh/sessions \
+    && chmod 700 /var/lib/localnh/sessions \
+    && printf '%s\n' '[www]' 'env[LOCALNH_SESSION_DIR] = $LOCALNH_SESSION_DIR' 'env[LOCALNH_TRUSTED_PROXIES] = $LOCALNH_TRUSTED_PROXIES' > /usr/local/etc/php-fpm.d/zz-localnh-env.conf
+
 EXPOSE 8080
 
 ENTRYPOINT ["/var/www/html/docker-entrypoint.sh"]
