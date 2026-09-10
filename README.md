@@ -186,7 +186,7 @@ The supplied Caddy configuration routes every request through `index.php`. Only 
 
 Static files are restricted to CSS in `/css/`, browser JavaScript in `/script/js/`, and images (`webp`, `png`, `jpg`, `jpeg`, `gif`, `svg`, `ico`) in `/cache/images/` and `/static/`. Place custom local favicons in `/static/`; external favicon URLs still work. Hidden paths, ambiguous paths, unknown file types, and symlinks resolving outside their permitted directory are rejected. Do not place private content in these public asset directories.
 
-This initial security change also sends static images through PHP. It favors one consistent access policy; direct static serving can be reintroduced after private data is moved outside a dedicated public web root. Authentication and CSRF changes are separate follow-up work.
+This initial security change also sends static images through PHP. It favors one consistent access policy; direct static serving can be reintroduced after private data is moved outside a dedicated public web root. Authentication and form protection are described below.
 
 ### Docker build context
 
@@ -213,7 +213,14 @@ environment:
 
 That address is only an example, not a subnet/address to copy blindly. Keep the value empty for local-only installs. Recreate the container after changing it. The previous experimental `LOCALNH_COOKIE_SECURE` switch is no longer used: a global switch cannot describe mixed HTTP/HTTPS access. HTTPS-only installations should enforce redirects at their public proxy, while local HTTP access may stay available separately.
 
-Use separate hostnames for mixed access (such as `localhost` locally and your public HTTPS domain). Browsers scope cookies by hostname, not port; HTTP and HTTPS on the *same* hostname can conflict with an existing Secure cookie. No special-case trust is granted based on a client-controlled Host value, and the implementation does not rely on browser exceptions for Secure on localhost. HTTP itself does not encrypt credentials or cookies. Session revocation does not replace CSRF protection: migration of state-changing GET actions is a separate follow-up step.
+Use separate hostnames for mixed access (such as `localhost` locally and your public HTTPS domain). Browsers scope cookies by hostname, not port; HTTP and HTTPS on the *same* hostname can conflict with an existing Secure cookie. No special-case trust is granted based on a client-controlled Host value, and the implementation does not rely on browser exceptions for Secure on localhost. HTTP itself does not encrypt credentials or cookies. Session revocation and CSRF checks protect different parts of the request flow; both are enforced for administrative mutations.
+
+
+### Forms and mutations
+
+Gallery deletion, public archive toggling, and logout require an authenticated POST with a session-bound CSRF token. Existing GET action links return 405 without performing the action; invalid or missing tokens return 403. Reload a stale form after signing in again. The gallery delete button retains its two-click confirmation. Successful changes redirect with 303. Session-specific pages are not shared-cacheable.
+
+Login, browser preference toggles, and archiving also require POST and CSRF checks. Anonymous forms use a signed nonce cookie that expires after two hours; login switches to session-bound tokens. Keep cookies enabled and reload an expired form. Viewing a missing gallery shows confirmation instead of downloading. Public archiving remains available when explicitly enabled. The home sort dropdown saves its browser-only preference on user interaction; opening a sort URL does not save it. Favorites/localStorage and read-only metadata/download endpoints retain their existing behavior.
 
 ---
 
@@ -233,7 +240,7 @@ Use separate hostnames for mixed access (such as `localhost` locally and your pu
 - **Python Libraries**:
   - [`curl_cffi`](https://github.com/lexiforest/curl_cffi) - Browser TLS fingerprinting & DoH client.
   - [`Pillow`](https://python-pillow.org) - Image processing & PDF generation.
-- **Development & AI Disclosure**: Developed with the assistance of **Antigravity CLI** powered by **Gemini 3.1 Pro** and **Gemini 3.7 Flash** models and **ChatGPT Desktop** powered by **GPT-5.6 Sol** and **GPT-6 Astra** models.
+- **Development & AI Disclosure**: Developed with the assistance of **Antigravity CLI** powered by **Gemini 3.1 Pro** and **Gemini 3.7 Flash** models.
 
 ---
 

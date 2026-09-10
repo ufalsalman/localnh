@@ -191,3 +191,8 @@ Users can back up or restore their full session at any time from the `/user` pag
 | `flip_page_order` | `ltr` / `rtl` | `ltr` | Reader page order direction |
 | `blur_covers` | `on` / `off` | `off` | Privacy thumbnail blurring |
 | `home_sort` | `na` / `nu` | `na` | Persistent homepage sorting (`newest - archived` or `newest - uploaded`) |
+
+
+## Request mutation boundaries
+
+bootstrap.php validates POST tokens before protected handlers act. Authenticated forms derive a token from the validated login session; anonymous forms use an expiring nonce signed with a key in the private session database. The nonce cookie alone cannot compute the token. Protected pages disable shared caching. Gallery deletion, public archive settings and logout additionally require admin authentication; preferences and pre-login forms do not. A missing gallery GET only offers confirmation, and its POST rechecks the current public/admin archive permission before starting Python. /api/favorites is a read-only POST lookup; downloads use temporary output files. Home sorting, favorites and reading state are browser preferences, not administrative mutations.

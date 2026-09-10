@@ -180,3 +180,12 @@ Before changes, record the running image ID/tag, save the current source and Com
 To roll back this topology, restore the saved source/config, explicitly select the saved image and recreate with `--no-build`; do not accidentally rebuild the new source. If the public route was changed, restore its former origin URL and TLS settings too. Preserve collection/config/cache/snapshot data and avoid `docker compose down -v`. Keep the unused CA/session directories until recovery is verified; restored legacy authentication can require login again.
 
 An installation-specific rollback script is not shipped here because its paths, previous image and prior routing state must come from that installation's backup. Review application changes before copying: exclude tests, fixtures, local reports, private configuration, certificate keys and deployment-specific port assignments.
+
+
+## POST and CSRF compatibility
+
+Administrative deletion, public archive toggling, logout, browser preference toggles, login, and archiving now require POST and a CSRF token from the rendered form. Old mutation GET links return 405; missing gallery GET shows an archive confirmation form. Invalid tokens return 403. Use the current UI or update automation to retain its own cookies, retrieve a fresh form token, and submit it with the POST body. Reload forms after login/logout or anonymous token expiration (two hours). Do not disable the guard.
+
+Anonymous cookies are HttpOnly, SameSite=Lax and host-only; HTTPS uses the __Host-localnh_form name with Secure, and local HTTP uses localnh_form. The signing key is generated lazily in the private session SQLite database (csrf_key table) and persists with the existing session volume. Login clears the pre-login cookie and uses the authenticated session context. No manual migration, new environment variable, certificate or tunnel change is required. Protect the entire session database, including this key, and exclude it from collection exports. If storage cannot be accessed, requests fail closed. A rollback may leave the extra table in place; the previous application ignores it.
+
+Do not cache login/settings/archive-confirmation pages or authenticated pages at a proxy/CDN; preserve the application's private/no-store response headers. CSRF controls do not replace authorization, rate limits, input validation or secure transport.

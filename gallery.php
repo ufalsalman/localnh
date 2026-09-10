@@ -4,9 +4,10 @@
 if (!isset($id) || !isset($db)) die('Invalid access');
 
 // --- Delete action ---
-// The 'delete' action is only honoured for logged-in users (no CSRF token; relies on login).
+// Delete requires an authenticated POST with the current session CSRF token.
 // It purges the cached image directory first, then removes the DB row.
-if (isset($_GET['action']) && $_GET['action'] === 'delete' && !empty($isLoggedIn)) {
+if (($_GET['action'] ?? '') === 'delete' || ($_POST['action'] ?? '') === 'delete') {
+    localnh_require_admin_post();
     $cache_dir = __DIR__ . "/cache/images/" . $id;
     if (is_dir($cache_dir)) {
         // glob() returns all files; @ suppresses errors on unlink for missing/locked files.
@@ -23,7 +24,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && !empty($isLoggedIn
     $stmt = $db->prepare("DELETE FROM galleries WHERE id = ?");
     $stmt->execute([$id]);
     
-    header("Location: /");
+    header("Location: /", true, 303);
     exit;
 }
 
@@ -113,15 +114,25 @@ $stmt = $db->prepare("SELECT * FROM galleries WHERE id = ?");
 $stmt->execute([$id]);
 $g = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// Gallery is not yet in the local DB — attempt to fetch it from the upstream API.
+// Missing galleries require confirmation; merely viewing a URL never archives.
 if (!$g) {
     $themeCss = getThemeVars();
     
     // config/token must exist for the Python fetch script to authenticate with the API.
     $missingToken = !file_exists(__DIR__ . '/config/token');
-    // $canArchive may not be set if we somehow reach here without an index.php bootstrap;
-    // default to true (permit) in that edge case.
-    $archiveDisabled = !(isset($canArchive) ? $canArchive : true);
+    $archiveDisabled = empty($canArchive);
+
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+        localnh_require_post();
+        if (($_POST['action'] ?? '') !== 'archive') {
+            http_response_code(400);
+            exit('Unknown gallery action.');
+        }
+        if ($archiveDisabled) {
+            http_response_code(403);
+            exit('Archiving is not permitted.');
+        }
+    }
 
     // Show a simple error page when archiving isn't possible — no fetch is attempted.
     if ($archiveDisabled || $missingToken) {
@@ -155,6 +166,19 @@ if (!$g) {
     </main>
 </body>
 </html>";
+        exit;
+    }
+
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+        if (!in_array($_SERVER['REQUEST_METHOD'] ?? '', ['GET', 'HEAD'], true)) {
+            header('Allow: GET, HEAD, POST');
+            http_response_code(405);
+            exit('Unsupported method.');
+        }
+        header('Cache-Control: private, no-store');
+        $csrfToken = localnh_csrf_token();
+        $safeId = htmlspecialchars($id, ENT_QUOTES);
+        echo "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>archive gallery</title><link rel='stylesheet' href='/css/style.css'><style>:root { {$themeCss} }</style></head><body><main class='narrow-page'><h1>archive gallery {$safeId}</h1><p>This gallery is not stored locally. Archive it now?</p><form method='POST' action='/g/{$safeId}'><input type='hidden' name='action' value='archive'><input type='hidden' name='csrf_token' value='{$csrfToken}'><button type='submit'>archive</button></form><p><a href='/'>cancel</a></p></main></body></html>";
         exit;
     }
 
@@ -501,7 +525,11 @@ $langUrl = urlencode($langText);
                 <a href='/download/<?= $id ?>'><button class='action-btn'>download</button></a>
                 <a href='https://nhentai.net/g/<?= $id ?>/' target='_blank' rel='noreferrer'><button class='action-btn'>nhentai</button></a>
                 <?php if (!empty($isLoggedIn)): ?>
-                <button id='delete-btn' class='action-btn'>delete</button>
+                <form method='POST' action='/g/<?= htmlspecialchars($id, ENT_QUOTES) ?>' id='delete-form' style='display:inline'>
+                    <input type='hidden' name='action' value='delete'>
+                    <input type='hidden' name='csrf_token' value='<?= localnh_csrf_token() ?>'>
+                    <button type='button' id='delete-btn' class='action-btn'>delete</button>
+                </form>
                 <?php endif; ?>
             </div>
             <p id='gallery-feedback' class='ui-text user-feedback'></p>

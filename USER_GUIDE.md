@@ -60,7 +60,7 @@ You can archive galleries to your local storage via the web interface or termina
 1. Enter a gallery ID (e.g., `123456`) or a full nhentai gallery URL (e.g., `https://nhentai.net/g/123456/`) into the search bar.
 2. Press `Enter` or click `go`.
 3. If the gallery is not yet saved locally:
-   - If public archiving is enabled (`config/public: on`) or you are logged in as admin, localnh will begin downloading metadata and converting all pages to WebP in real time with a live progress bar.
+   - If public archiving is enabled (`config/public: on`) or you are logged in as admin, click **archive** on the confirmation page. localnh will then begin downloading metadata and converting all pages to WebP in real time with a live progress bar.
    - Once completed, you will be redirected to the gallery overview page.
 
 ### Command Line Interface (CLI)
@@ -144,3 +144,8 @@ Customize your viewing experience at `/settings`:
 A local installation can use HTTP on localhost without a domain or tunnel. Public installations should provide HTTPS. You can sign in through localhost and a different public hostname independently; ports alone do not separate cookies. Existing sessions need a new login after the server-side session upgrade. Logout revokes the current browser session; other devices remain signed in.
 
 For deployment configuration and troubleshooting (including an HTTP request sent to an HTTPS port), see [DEPLOYMENT.md](DEPLOYMENT.md).
+
+
+## Form expiration and preferences
+
+Login, settings, logout, and archive confirmation forms require cookies and a valid form token. If a form reports an invalid CSRF token, reload the page and try again; anonymous forms expire after two hours, and signing in changes the form context. Opening an old delete/toggle/logout URL no longer performs the action. Use the buttons in the current interface. Selecting the home sort dropdown saves the preference in your browser; visiting a shared sort URL only changes that view.

@@ -546,11 +546,9 @@ $savedHomeSort = (isset($_COOKIE['home_sort']) && in_array($_COOKIE['home_sort']
 if ($isHomePage) {
     if (isset($_GET['sort'])) {
         $sort = $_GET['sort'];
-        // Persist only 'newest' preferences across sessions so temporary 'oldest' browsing doesn't overwrite it
-        if (in_array($sort, ['na', 'nu'])) {
-            setcookie('home_sort', $sort, time() + 365 * 86400, '/');
-            $savedHomeSort = $sort;
-        }
+        // GET selects the view only. The dropdown saves this browser's
+        // preference on user interaction, not when following an external URL.
+
     } else {
         $sort = $savedHomeSort;
     }
@@ -667,7 +665,7 @@ $themeCss = getThemeVars();
                 <input type='hidden' name='<?= htmlspecialchars($filterType) ?>' value='<?= htmlspecialchars($filterValue) ?>'>
             <?php endif; ?>
             <label for='sort-select'>sort </label>
-            <select name='sort' id='sort-select' onchange='document.getElementById("sort-form").submit()'>
+            <select name='sort' id='sort-select' data-remember='<?= $isHomePage ? "yes" : "no" ?>' onchange='if (this.dataset.remember === "yes" &amp;&amp; ["na", "nu"].includes(this.value)) document.cookie = "home_sort=" + this.value + "; Max-Age=31536000; Path=/; SameSite=Lax"; this.form.submit()' >
                 <option value='na' <?= $sort === 'na' ? 'selected' : '' ?>>newest - archived</option>
                 <option value='oa' <?= $sort === 'oa' ? 'selected' : '' ?>>oldest - archived</option>
                 <option value='nu' <?= $sort === 'nu' ? 'selected' : '' ?>>newest - uploaded</option>

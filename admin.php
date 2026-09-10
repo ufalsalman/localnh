@@ -58,6 +58,7 @@ $themeCss = getThemeVars();
 // Process login submission
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'login') {
+    localnh_require_post();
     $user = $_POST['user'] ?? '';
     $pass = $_POST['pass'] ?? '';
     if (is_string($user) && is_string($pass) && localnh_login($user, $pass)) {
@@ -73,6 +74,10 @@ if ($isLoggedIn) {
     header('Location: /settings');
     exit;
 }
+
+// Generate before HTML so the anonymous form cookie can be sent.
+header('Cache-Control: private, no-store');
+$csrfToken = localnh_csrf_token();
 
 // Favicon configuration loader
 $faviconFile = __DIR__ . '/config/favicon';
@@ -108,6 +113,7 @@ if (file_exists($faviconFile)) {
         <?php if ($error): ?><p class='ui-text error-text'><?= htmlspecialchars($error) ?></p><?php endif; ?>
         <form method='POST'>
             <input type='hidden' name='action' value='login'>
+            <input type='hidden' name='csrf_token' value='<?= $csrfToken ?>'>
             <div class='remote-field-sm'>
                 <input type='text' name='user' class='remote-input' placeholder='username' required>
             </div>

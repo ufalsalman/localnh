@@ -49,47 +49,44 @@ function getThemeVars($bgColor = null) {
 }
 }
 
-// Logout revokes the server-side session. POST/CSRF migration follows separately.
-if (isset($_GET['logout'])) {
+// Legacy GET action URLs fail without changing state; forms use POST + CSRF.
+if (isset($_GET['logout']) || isset($_POST['logout'])) {
+    localnh_require_admin_post();
     localnh_logout();
-    header('Location: /');
+    header('Location: /', true, 303);
     exit;
 }
 
-// Toggle handler: all setting changes are performed via GET ?toggle=<name> redirects.
-// This is a server-side-rendered pattern — no JS or AJAX needed.
-if (isset($_GET['toggle'])) {
-    $setting = $_GET['toggle'];
-    // Whitelist: only these known toggle names are accepted to prevent arbitrary cookie writes.
-    if (in_array($setting, ['dark_mode', 'dynamic_color', 'blur_covers'])) {
-        $default = ($setting === 'blur_covers') ? 'off' : 'on';
-        $current = isset($_COOKIE[$setting]) ? $_COOKIE[$setting] : $default;
-        $new = ($current === 'on') ? 'off' : 'on';
-        // Cookie is set for 1 year (365 * 86400 seconds).
-        setcookie($setting, $new, time() + 365 * 86400, '/');
-    } elseif ($setting === 'flip_page_order') {
-        // This setting cycles between two values ('ltr' / 'rtl') instead of on/off.
-        $current = (isset($_COOKIE['flip_page_order']) && in_array($_COOKIE['flip_page_order'], ['ltr', 'rtl'])) ? $_COOKIE['flip_page_order'] : 'ltr';
-        $new = ($current === 'ltr') ? 'rtl' : 'ltr';
-        setcookie('flip_page_order', $new, time() + 365 * 86400, '/');
-    } elseif ($setting === 'blur_covers' && $isLoggedIn) {
-        // Admin-only: blur cover images site-wide (stored as a cookie, not a config file).
-        $default = 'off';
-        $current = isset($_COOKIE[$setting]) ? $_COOKIE[$setting] : $default;
-        $new = ($current === 'on') ? 'off' : 'on';
-        setcookie($setting, $new, time() + 365 * 86400, '/');
-    } elseif ($setting === 'public_archive' && $isLoggedIn) {
-        // Admin-only: toggle whether anonymous visitors can trigger archiving.
-        // State is written to a flat file so it persists across sessions/restarts.
-        $paFile = __DIR__ . '/config/public';
-        $current = file_exists($paFile) ? trim(file_get_contents($paFile)) : 'off';
-        $new = ($current === 'on') ? 'off' : 'on';
-        file_put_contents($paFile, $new);
+if (($_GET['toggle'] ?? '') === 'public_archive' || ($_POST['toggle'] ?? '') === 'public_archive') {
+    localnh_require_admin_post();
+    $paFile = __DIR__ . '/config/public';
+    $current = file_exists($paFile) ? trim(file_get_contents($paFile)) : 'off';
+    if (file_put_contents($paFile, $current === 'on' ? 'off' : 'on', LOCK_EX) === false) {
+        http_response_code(500);
+        exit('Unable to save public archive setting.');
     }
-    // Always redirect back to /settings after processing a toggle to prevent re-submission on refresh.
-    header("Location: /settings");
+    header('Location: /settings', true, 303);
     exit;
 }
+
+// Browser preferences are available without admin login, but still require
+// an intentional POST from this browser's signed form context.
+if (isset($_GET['toggle']) || isset($_POST['toggle'])) {
+    localnh_require_post();
+    $setting = $_POST['toggle'] ?? '';
+    if (!is_string($setting) || !in_array($setting, ['dark_mode', 'dynamic_color', 'blur_covers', 'flip_page_order'], true)) {
+        http_response_code(400);
+        exit('Unknown preference.');
+    }
+    $default = $setting === 'blur_covers' ? 'off' : 'on';
+    $current = $_COOKIE[$setting] ?? $default;
+    $new = $setting === 'flip_page_order' ? ($current === 'rtl' ? 'ltr' : 'rtl') : ($current === 'on' ? 'off' : 'on');
+    setcookie($setting, $new, time() + 365 * 86400, '/');
+    header('Location: /settings', true, 303);
+    exit;
+}
+header('Cache-Control: private, no-store');
+$csrfToken = localnh_csrf_token();
 
 // Read current values of each setting for display in the HTML toggles below.
 $darkMode = (isset($_COOKIE['dark_mode']) ? $_COOKIE['dark_mode'] : 'on');
@@ -135,13 +132,37 @@ if (file_exists($faviconFile)) {
     </div>
     <div class='settings-content'>
         <h2>settings</h2>
-        <p class='ui-text'>dark mode <a href='/settings?toggle=dark_mode'><button><?= htmlspecialchars($darkMode) ?></button></a></p>
-        <p class='ui-text'>dynamic color on gallery page <a href='/settings?toggle=dynamic_color'><button><?= htmlspecialchars($dynamicColor) ?></button></a></p>
-        <p class='ui-text'>reader page order <a href='/settings?toggle=flip_page_order'><button><?= htmlspecialchars($flipPageOrder) ?></button></a></p>
-        <p class='ui-text'>blur cover images <a href='/settings?toggle=blur_covers'><button><?= htmlspecialchars($blurCovers) ?></button></a></p>
+        <form method='POST' action='/settings'>
+            <input type='hidden' name='toggle' value='dark_mode'>
+            <input type='hidden' name='csrf_token' value='<?= $csrfToken ?>'>
+            <p class='ui-text'>dark mode <button type='submit'><?= htmlspecialchars($darkMode) ?></button></p>
+        </form>
+        <form method='POST' action='/settings'>
+            <input type='hidden' name='toggle' value='dynamic_color'>
+            <input type='hidden' name='csrf_token' value='<?= $csrfToken ?>'>
+            <p class='ui-text'>dynamic color on gallery page <button type='submit'><?= htmlspecialchars($dynamicColor) ?></button></p>
+        </form>
+        <form method='POST' action='/settings'>
+            <input type='hidden' name='toggle' value='flip_page_order'>
+            <input type='hidden' name='csrf_token' value='<?= $csrfToken ?>'>
+            <p class='ui-text'>reader page order <button type='submit'><?= htmlspecialchars($flipPageOrder) ?></button></p>
+        </form>
+        <form method='POST' action='/settings'>
+            <input type='hidden' name='toggle' value='blur_covers'>
+            <input type='hidden' name='csrf_token' value='<?= $csrfToken ?>'>
+            <p class='ui-text'>blur cover images <button type='submit'><?= htmlspecialchars($blurCovers) ?></button></p>
+        </form>
         <?php if ($isLoggedIn): ?>
-        <p class='ui-text'>allow archive by public <a href='/settings?toggle=public_archive'><button><?= htmlspecialchars($publicArchive) ?></button></a></p>
-        <p class='ui-text'>admin logged in as <?= htmlspecialchars($authCredentials['user']) ?> <a href='/settings?logout=1'><button>logout</button></a></p>
+        <form method='POST' action='/settings'>
+            <input type='hidden' name='toggle' value='public_archive'>
+            <input type='hidden' name='csrf_token' value='<?= localnh_csrf_token() ?>'>
+            <p class='ui-text'>allow archive by public <button type='submit'><?= htmlspecialchars($publicArchive) ?></button></p>
+        </form>
+        <form method='POST' action='/settings'>
+            <input type='hidden' name='logout' value='1'>
+            <input type='hidden' name='csrf_token' value='<?= localnh_csrf_token() ?>'>
+            <p class='ui-text'>admin logged in as <?= htmlspecialchars($authCredentials['user']) ?> <button type='submit'>logout</button></p>
+        </form>
         <?php /* else: ?>
         <p class='ui-text'>for admins <a href='/admin'><button>login</button></a></p>
         <?php */ endif; ?>

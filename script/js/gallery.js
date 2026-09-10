@@ -255,7 +255,8 @@ if (showMoreBtn) {
                 deleteConfirmState = false;
                 clearTimeout(deleteTimeout);
                 showFeedback('deleting gallery...');
-                window.location.href = '/g/' + window.galleryId + '?action=delete';
+                // Submit only after the existing second-click confirmation.
+                document.getElementById('delete-form').requestSubmit();
             }
         });
     }
