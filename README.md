@@ -221,3 +221,19 @@ This initial security change also sends static images through PHP. It favors
 one consistent access policy; direct static serving can be reintroduced after
 private data is moved outside a dedicated public web root. Authentication and
 CSRF changes are separate follow-up work.
+
+### Docker build context
+
+Private configuration (`config/`, `.env*`), cache, snapshots, runtime/session
+storage, SQLite databases and their sidecar files are excluded from the image.
+Local tests, plans, personal files, and backup directories are excluded as well.
+`config.example/` remains in the image so the entrypoint can initialize an empty
+configuration directory. Existing mounted configuration is not overwritten.
+The Dockerfile creates empty cache, snapshot, and configuration directories;
+these do not require copying host data into the image.
+
+Keep real credentials and application data in the runtime mounts documented
+above. Build exclusions prevent inclusion in new images; they do not remove
+private data from images built previously. Arbitrarily named secret/backup
+files outside the excluded locations still need to be kept out of the build
+context.

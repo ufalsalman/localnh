@@ -1,10 +1,31 @@
+# Repository metadata and local development/review material
 .git
-cache/images/*
-!cache/images/.gitkeep
-cache.sqlite
-database.db
-snapshot/*
-!snapshot/.gitkeep
+.agents/
+.codex/
+tests/
+plans/
+personal/
+
+# Private configuration; config.example/ remains available for first startup.
+config/
+.env
+.env.*
+
+# Runtime data, including SQLite sidecars and future session storage.
+cache/
+snapshot/
+runtime/
+sessions/
+baseline/
+backups/
+**/*.sqlite
+**/*.sqlite-*
+**/*.db
+**/*.db-*
+
+# Host environments and generated files
 venv/
-__pycache__/
-*.pyc
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.log
