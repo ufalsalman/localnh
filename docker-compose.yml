@@ -8,6 +8,8 @@ services:
     ports:
       - "8080:8080"
     environment:
+      # Empty retains legacy paths. See STORAGE.md before enabling external data.
+      LOCALNH_DATA_DIR: ""
       # Empty for local HTTP or a direct HTTPS origin. Do not trust a shared
       # Docker gateway just because a host tunnel appears to come from it.
       LOCALNH_TRUSTED_PROXIES: ""

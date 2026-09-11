@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . "/storage.php";
 // Shared authentication state. Presentation helpers stay in their existing files.
 const LOCALNH_SESSION_TTL = 86400 * 30;
 
@@ -9,7 +10,7 @@ function localnh_auth_unavailable(): never {
 }
 
 function localnh_credentials(): ?array {
-    $path = __DIR__ . '/config/credentials';
+    $path = localnh_data_path('config/credentials');
     clearstatcache(true, $path);
     $text = is_file($path) && is_readable($path) ? @file_get_contents($path) : false;
     if ($text === false) return null;
@@ -159,7 +160,7 @@ function localnh_logout(): void {
 $authCredentials = localnh_credentials();
 $isLoggedIn = false;
 try {
-    $sessionDir = getenv('LOCALNH_SESSION_DIR') ?: __DIR__ . '/sessions';
+    $sessionDir = localnh_session_dir();
     $oldMask = umask(0077);
     try {
         if (!is_dir($sessionDir) && !@mkdir($sessionDir, 0700, true) && !is_dir($sessionDir)) {

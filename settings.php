@@ -4,7 +4,7 @@ require_once __DIR__ . '/bootstrap.php';
 // can be served standalone or via the router without fatal redeclaration errors.
 if (!function_exists('getSiteName')) {
 function getSiteName() {
-    $path = __DIR__ . '/config/title';
+    $path = localnh_data_path('config/title');
     if (file_exists($path)) {
         $content = trim(file_get_contents($path));
         if ($content !== '') return $content;
@@ -59,7 +59,7 @@ if (isset($_GET['logout']) || isset($_POST['logout'])) {
 
 if (($_GET['toggle'] ?? '') === 'public_archive' || ($_POST['toggle'] ?? '') === 'public_archive') {
     localnh_require_admin_post();
-    $paFile = __DIR__ . '/config/public';
+    $paFile = localnh_data_path('config/public');
     $current = file_exists($paFile) ? trim(file_get_contents($paFile)) : 'off';
     if (file_put_contents($paFile, $current === 'on' ? 'off' : 'on', LOCK_EX) === false) {
         http_response_code(500);
@@ -96,13 +96,13 @@ $flipPageOrder = (isset($_COOKIE['flip_page_order']) && in_array($_COOKIE['flip_
 $blurCovers = (isset($_COOKIE['blur_covers']) ? $_COOKIE['blur_covers'] : 'off');
 // public_archive is read from the filesystem rather than a cookie so the admin setting
 // is shared across all browser sessions (not per-client).
-$paFile = __DIR__ . '/config/public';
+$paFile = localnh_data_path('config/public');
 $publicArchive = file_exists($paFile) ? trim(file_get_contents($paFile)) : 'off';
 
 $themeCss = getThemeVars();
 
 // Favicon path normalisation: relative paths are made root-relative.
-$faviconFile = __DIR__ . '/config/favicon';
+$faviconFile = localnh_data_path('config/favicon');
 $faviconHtml = '';
 if (file_exists($faviconFile)) {
     $faviconPath = trim(file_get_contents($faviconFile));

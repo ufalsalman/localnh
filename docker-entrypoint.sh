@@ -1,26 +1,24 @@
 #!/bin/sh
 set -e
 
-# If config directory is empty, seed it with template files from config.example
-if [ -d "/var/www/html/config.example" ] && [ -d "/var/www/html/config" ]; then
-    if [ ! "$(ls -A /var/www/html/config)" ]; then
-        echo "[*] Initializing empty config directory from config.example..."
-        cp -r /var/www/html/config.example/* /var/www/html/config/
+# External storage must be initialized explicitly. Never silently create a
+# second empty collection when an environment variable or mount is wrong.
+if [ -n "${LOCALNH_DATA_DIR:-}" ]; then
+    python3 /var/www/html/script/py/storage.py paths >/dev/null
+    chown -R www-data:www-data "$LOCALNH_DATA_DIR"
+else
+    if [ -d /var/www/html/config ] && [ -z "$(ls -A /var/www/html/config)" ]; then
+        cp -r /var/www/html/config.example/. /var/www/html/config/
     fi
+    chown -R www-data:www-data /var/www/html/cache /var/www/html/snapshot /var/www/html/config 2>/dev/null || true
+    if [ -f /var/www/html/cache.sqlite ]; then chown www-data:www-data /var/www/html/cache.sqlite; fi
 fi
-
-# Ensure storage directories have proper ownership for the web server
-chown -R www-data:www-data /var/www/html/cache /var/www/html/snapshot /var/www/html/config 2>/dev/null || true
-if [ -f "/var/www/html/cache.sqlite" ]; then
-    chown www-data:www-data /var/www/html/cache.sqlite 2>/dev/null || true
-fi
-
-# Prepare only the dedicated session directory, including persistent mounts.
-# Keep this separate from collection backups. PHP and CLI must use the same
-# LOCALNH_SESSION_DIR; a persistent mount preserves logins across recreation.
-mkdir -p "$LOCALNH_SESSION_DIR"
-chown www-data:www-data "$LOCALNH_SESSION_DIR"
-chmod 700 "$LOCALNH_SESSION_DIR"
+session_dir=$(python3 -c 'import sys; sys.path.insert(0,"/var/www/html/script/py"); from storage import session_dir; print(session_dir())')
+mkdir -p "$session_dir"
+chown www-data:www-data "$session_dir"
+chmod 700 "$session_dir"
+# Verify selected storage as the actual writer, not only as the root launcher.
+runuser -u www-data -- python3 /var/www/html/script/py/storage.py paths >/dev/null
 
 # Start PHP-FPM daemon
 php-fpm -D

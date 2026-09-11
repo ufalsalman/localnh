@@ -8,7 +8,7 @@ if (!isset($id) || !isset($db)) die('Invalid access');
 // It purges the cached image directory first, then removes the DB row.
 if (($_GET['action'] ?? '') === 'delete' || ($_POST['action'] ?? '') === 'delete') {
     localnh_require_admin_post();
-    $cache_dir = __DIR__ . "/cache/images/" . $id;
+    $cache_dir = localnh_data_path('cache/images/' . $id);
     if (is_dir($cache_dir)) {
         // glob() returns all files; @ suppresses errors on unlink for missing/locked files.
         $files = glob($cache_dir . '/*');
@@ -51,12 +51,12 @@ if (isset($_GET['download'])) {
         $zip = new ZipArchive();
         // tempnam() creates a unique temporary file; ZipArchive will overwrite it.
         $tmp = tempnam(sys_get_temp_dir(), 'arc');
-        if ($zip->open($tmp, ZipArchive::CREATE) !== TRUE) {
+        if ($zip->open($tmp, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== TRUE) {
             die("Cannot create zip.");
         }
         foreach ($pages as $p) {
-            $path = __DIR__ . '/' . ltrim($p, '/');
-            if (file_exists($path)) {
+            $path = localnh_image_path($p);
+            if ($path !== false && is_file($path)) {
                 // Store files with just the base name (no subdirectory) for clean extraction.
                 $zip->addFile($path, basename($p));
             }
@@ -119,7 +119,7 @@ if (!$g) {
     $themeCss = getThemeVars();
     
     // config/token must exist for the Python fetch script to authenticate with the API.
-    $missingToken = !file_exists(__DIR__ . '/config/token');
+    $missingToken = !file_exists(localnh_data_path('config/token'));
     $archiveDisabled = empty($canArchive);
 
     if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
@@ -326,7 +326,7 @@ if (!$g) {
                     }
                     fclose($pipes[1]);
                     proc_close($process);
-                    $cache_dir = __DIR__ . "/cache/images/" . $id;
+                    $cache_dir = localnh_data_path('cache/images/' . $id);
                     exec("rm -rf " . escapeshellarg($cache_dir));
                     exit;
                 }

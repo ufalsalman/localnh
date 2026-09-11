@@ -152,11 +152,12 @@ Open `http://localhost:8080` in your browser.
 # Purge all galleries and image cache:
 ./localnh delete purge
 
+# Stop all web/CLI writers before snapshot export or import (see STORAGE.md).
 # Export a complete portable snapshot (database + chunked tar cache):
-./localnh snapshot export
+./localnh snapshot export --offline
 
 # Import a snapshot:
-./localnh snapshot import /path/to/snapshot_index.json
+./localnh snapshot import /path/to/snapshot_index.json --offline
 ```
 
 ---
@@ -225,6 +226,8 @@ Login, browser preference toggles, and archiving also require POST and CSRF chec
 ---
 
 ## Documentation
+
+- **[Storage Guide](STORAGE.md)**: Legacy/external paths, initialization, permissions, offline snapshots, verified migration and rollback before/after writes.
 
 - **[Deployment Guide](DEPLOYMENT.md)**: Local HTTP, public HTTPS, mixed access, optional host tunnels, certificate trust, verification, and rollback.
 

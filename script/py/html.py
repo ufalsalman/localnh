@@ -1,3 +1,4 @@
+from storage import data_root, data_path, image_path, gallery_path
 #!/usr/bin/env python3
 """
 localnh Standalone Single-File HTML Exporter
@@ -15,7 +16,7 @@ from datetime import datetime
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(os.path.dirname(SCRIPT_DIR))
-DB_PATH = os.path.join(ROOT_DIR, 'cache.sqlite')
+DB_PATH = str(data_path('cache.sqlite'))
 CSS_PATH = os.path.join(ROOT_DIR, 'css', 'style.css')
 
 HTML_TEMPLATE = """<!DOCTYPE html>
@@ -207,7 +208,7 @@ def sanitize_filename(name):
     return clean[:120].strip()
 
 def get_site_name():
-    title_path = os.path.join(ROOT_DIR, 'config', 'title')
+    title_path = str(data_path('config/title'))
     if os.path.exists(title_path):
         with open(title_path, 'r', encoding='utf-8') as f:
             c = f.read().strip()
@@ -259,7 +260,7 @@ def export_gallery(gallery_id, output_path=None):
     pages_paths = json.loads(row['pages_paths']) if row['pages_paths'] else []
     if not pages_paths and page_count > 0:
         # Fallback to scanning cache directory
-        img_dir = os.path.join(ROOT_DIR, 'cache', 'images', str(gallery_id))
+        img_dir = str(gallery_path(gallery_id))
         if os.path.exists(img_dir):
             for i in range(1, page_count + 1):
                 pages_paths.append(f"cache/images/{gallery_id}/{i}.webp")
@@ -268,7 +269,7 @@ def export_gallery(gallery_id, output_path=None):
     preview_grid_html_parts = []
 
     for idx, rel_path in enumerate(pages_paths, start=1):
-        full_path = os.path.join(ROOT_DIR, rel_path)
+        full_path = str(image_path(rel_path))
         print(f"\rEmbedding page {idx}/{len(pages_paths)}...", end="", flush=True)
         b64_uri = file_to_base64_uri(full_path)
         if not b64_uri:
@@ -285,7 +286,7 @@ def export_gallery(gallery_id, output_path=None):
 
     # Process Cover
     cover_rel_path = row['cover_path'] or (pages_paths[0] if pages_paths else "")
-    cover_full_path = os.path.join(ROOT_DIR, cover_rel_path)
+    cover_full_path = str(image_path(cover_rel_path))
     cover_b64 = file_to_base64_uri(cover_full_path) if os.path.exists(cover_full_path) else (pages_b64[0] if pages_b64 else "")
 
     # Process Tags

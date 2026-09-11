@@ -1,3 +1,4 @@
+from storage import data_root, data_path, image_path, gallery_path
 import sys
 import os
 import json
@@ -12,10 +13,10 @@ def get_api_key():
     # Resolve paths relative to this script's location so the project can be
     # run from any working directory without hardcoded paths.
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    root_dir = os.path.dirname(os.path.dirname(script_dir))
+    root_dir = str(data_root())
     # API token is stored as a plain-text file at config/token; absent file
     # means anonymous access (empty Bearer token is sent).
-    token_path = os.path.join(root_dir, "config", "token")
+    token_path = str(data_path('config/token'))
     if os.path.exists(token_path):
         with open(token_path, "r") as f:
             return f.read().strip()
@@ -26,8 +27,8 @@ def get_doh_url():
     # DoH is used because standard UDP DNS may be blocked or poisoned in some
     # network environments (e.g. ISPs that censor the target domain).
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    root_dir = os.path.dirname(os.path.dirname(script_dir))
-    doh_path = os.path.join(root_dir, "config", "doh")
+    root_dir = str(data_root())
+    doh_path = str(data_path('config/doh'))
     if os.path.exists(doh_path):
         with open(doh_path, "r") as f:
             val = f.read().strip()
@@ -58,13 +59,13 @@ def out(obj):
 def fetch_data(code):
     # Anchor all file paths to the repository root, not the current directory.
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    root_dir = os.path.dirname(os.path.dirname(script_dir))
+    root_dir = str(data_root())
     # Each gallery gets its own subdirectory under cache/images/<id>/.
-    cache_dir = os.path.join(root_dir, "cache", "images", str(code))
+    cache_dir = str(gallery_path(code))
     os.makedirs(cache_dir, exist_ok=True)
     # Ensure the web server process (which may run as a different user) can
-    # read the cached files by granting world-readable/writable permissions.
-    os.chmod(cache_dir, 0o777)
+    # read the cached files by granting permissions for the runtime owner.
+    os.chmod(cache_dir, 0o750)
     
     api_url = f"https://nhentai.net/api/v2/galleries/{code}"
     
@@ -114,7 +115,7 @@ def fetch_data(code):
         
         
         cover_path_api = data.get("cover", {}).get("path")
-        local_cover_path = os.path.join(cache_dir, "cover.webp")
+        local_cover_path = str(image_path(f"cache/images/{code}/cover.webp"))
         # Use a relative path for the cover so URLs work regardless of where
         # the server is mounted.
         local_cover_rel = f"cache/images/{code}/cover.webp"
@@ -191,7 +192,7 @@ def fetch_data(code):
                 
             # All downloaded pages are converted to WebP and stored by 1-based
             # page number, regardless of their original format.
-            local_page_path = os.path.join(cache_dir, f"{i+1}.webp")
+            local_page_path = str(image_path(f"cache/images/{code}/{i+1}.webp"))
             local_page_rel = f"cache/images/{code}/{i+1}.webp"
             
             # Skip download if the file already exists; allows re-running the
@@ -239,7 +240,7 @@ def fetch_data(code):
         # Useful when the DB was lost/corrupted but the image cache still exists.
         if "--fix" in sys.argv:
             import sqlite3
-            db_path = os.path.join(root_dir, "cache.sqlite")
+            db_path = str(data_path('cache.sqlite'))
             conn = sqlite3.connect(db_path)
             c = conn.cursor()
             

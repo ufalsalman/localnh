@@ -59,9 +59,9 @@ if ($page === 0) {
     $storedPath = is_array($pagePaths) ? ($pagePaths[$page - 1] ?? '') : '';
 }
 
-$cacheRoot = realpath(__DIR__ . '/cache/images');
+$cacheRoot = realpath(localnh_data_path('cache/images'));
 $sourcePath = is_string($storedPath) && $storedPath !== ''
-    ? realpath(__DIR__ . '/' . ltrim($storedPath, '/'))
+    ? localnh_image_path($storedPath)
     : false;
 
 // A malformed database row or symlink must not expose files outside cache/images.

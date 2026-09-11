@@ -5,7 +5,7 @@
 if (!function_exists('getSiteName')) {
 function getSiteName() {
     // Reads the site title from a flat file; falls back to 'localnh' if the file is missing or empty.
-    $path = __DIR__ . '/config/title';
+    $path = localnh_data_path('config/title');
     if (file_exists($path)) {
         $content = trim(file_get_contents($path));
         if ($content !== '') return $content;
@@ -59,7 +59,7 @@ if (!function_exists('getFooterHtml')) {
 function getFooterHtml() {
     // Reads footer content from a flat file and applies a minimal Markdown-link
     // conversion ([text](url) → <a href="url">text</a>) before rendering.
-    $path = __DIR__ . '/config/footer';
+    $path = localnh_data_path('config/footer');
     if (file_exists($path)) {
         $md = trim(file_get_contents($path));
         if ($md !== '') {
@@ -73,7 +73,7 @@ function getFooterHtml() {
 $footerHtml = getFooterHtml();
 
 // Favicon path may be relative or absolute; normalise relative paths by prepending '/'.
-$faviconFile = __DIR__ . '/config/favicon';
+$faviconFile = localnh_data_path('config/favicon');
 $faviconHtml = '';
 if (file_exists($faviconFile)) {
     $faviconPath = trim(file_get_contents($faviconFile));
@@ -91,7 +91,7 @@ if (file_exists($faviconFile)) {
 $isOrphanPage = !empty($isOrphanPage);
 
 // public archive flag: 'on' means unauthenticated visitors can also trigger archiving.
-$paFile = __DIR__ . '/config/public';
+$paFile = localnh_data_path('config/public');
 $publicArchive = file_exists($paFile) ? trim(file_get_contents($paFile)) : 'off';
 // $canArchive is exposed to JavaScript (window.canArchive) to show/hide the archive button.
 $canArchive = ($publicArchive === 'on' || !empty($isLoggedIn));

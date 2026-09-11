@@ -1,15 +1,16 @@
 <?php
+require_once __DIR__ . "/storage.php";
 /**
  * RSS 2.0 Feed Generator
  * Serves an XML feed of the 50 most recently archived galleries.
  */
 
 // Initialize database connection to local SQLite cache
-$db = new PDO('sqlite:' . __DIR__ . '/cache.sqlite');
+$db = new PDO('sqlite:' . localnh_data_path('cache.sqlite'));
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 // Read custom site name from config/title
-$path = __DIR__ . '/config/title';
+$path = localnh_data_path('config/title');
 $siteName = 'localnh';
 if (file_exists($path)) {
     $content = trim(file_get_contents($path));

@@ -8,7 +8,7 @@ require_once __DIR__ . '/bootstrap.php';
 // Helper to retrieve the custom site name or default to 'localnh'
 if (!function_exists('getSiteName')) {
 function getSiteName() {
-    $path = __DIR__ . '/config/title';
+    $path = localnh_data_path('config/title');
     if (file_exists($path)) {
         $content = trim(file_get_contents($path));
         if ($content !== '') return $content;
@@ -80,7 +80,7 @@ header('Cache-Control: private, no-store');
 $csrfToken = localnh_csrf_token();
 
 // Favicon configuration loader
-$faviconFile = __DIR__ . '/config/favicon';
+$faviconFile = localnh_data_path('config/favicon');
 $faviconHtml = '';
 if (file_exists($faviconFile)) {
     $faviconPath = trim(file_get_contents($faviconFile));

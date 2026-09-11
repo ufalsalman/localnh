@@ -1,7 +1,8 @@
 <?php
+require_once __DIR__ . "/storage.php";
 // Bootstrap the SQLite database connection using a file-based cache in the project root.
 // PDO is used for its unified API and prepared-statement support across DB drivers.
-$db = new PDO('sqlite:' . __DIR__ . '/cache.sqlite');
+$db = new PDO('sqlite:' . localnh_data_path('cache.sqlite'));
 // Throw exceptions on query errors instead of silently returning false.
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 // Create the galleries table only when it does not already exist (idempotent bootstrap).
@@ -28,7 +29,7 @@ require_once __DIR__ . '/bootstrap.php';
 // --- Favicon config ---
 // config/favicon may contain a relative path (e.g. "img/icon.png") or an absolute/external URL.
 // Relative paths are normalised to root-relative so they work correctly from any sub-path.
-$faviconFile = __DIR__ . '/config/favicon';
+$faviconFile = localnh_data_path('config/favicon');
 $faviconHtml = '';
 if (file_exists($faviconFile)) {
     $faviconPath = trim(file_get_contents($faviconFile));
@@ -44,7 +45,7 @@ if (file_exists($faviconFile)) {
 // --- Public archive toggle ---
 // config/public contains the literal string 'on' to allow unauthenticated users to trigger
 // the fetch/archive workflow. When the file is absent or holds any other value, archiving is login-gated.
-$paFile = __DIR__ . '/config/public';
+$paFile = localnh_data_path('config/public');
 $publicArchiveEnabled = (file_exists($paFile) && trim(file_get_contents($paFile)) === 'on');
 // $canArchive is true for logged-in users OR when public archiving is enabled site-wide.
 $canArchive = ($isLoggedIn || $publicArchiveEnabled);
@@ -65,10 +66,10 @@ $canArchive = ($isLoggedIn || $publicArchiveEnabled);
  * @return string HSL CSS string (e.g. "hsl(220, 40%, 12%)") or a safe fallback hex.
  */
 function getDominantColor($filePath, $isDarkMode = true) {
-    $fullPath = __DIR__ . '/' . ltrim($filePath, '/');
+    $fullPath = localnh_image_path($filePath);
     // Return a plain dark/light fallback when the file is missing or unreadable.
     $defaultBg = $isDarkMode ? '#111' : '#fff';
-    if (!file_exists($fullPath)) return $defaultBg;
+    if ($fullPath === false || !is_file($fullPath)) return $defaultBg;
     // @ suppresses warnings for corrupt/truncated files; $img stays false on failure.
     $mime = @mime_content_type($fullPath);
     $img = false;
@@ -117,7 +118,7 @@ function getDominantColor($filePath, $isDarkMode = true) {
 
 // getSiteName(): reads the display name from config/title; falls back to 'localnh'.
 function getSiteName() {
-    $path = __DIR__ . '/config/title';
+    $path = localnh_data_path('config/title');
     if (file_exists($path)) {
         $content = trim(file_get_contents($path));
         if ($content !== '') return $content;
@@ -133,7 +134,7 @@ $siteName = getSiteName();
  * Only link syntax is processed — other Markdown is left as plain text.
  */
 function getFooterHtml() {
-    $path = __DIR__ . '/config/footer';
+    $path = localnh_data_path('config/footer');
     if (file_exists($path)) {
         $md = trim(file_get_contents($path));
         if ($md !== '') {
@@ -383,11 +384,17 @@ if ($path === '/thumbnail' || $path === '/thumbnail/') {
     $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
     foreach ($publicAssets as $prefix => $types) {
         if (!str_starts_with($path, $prefix) || !isset($types[$ext])) continue;
-        $filePath = realpath(__DIR__ . $path);
+        $assetRoot = __DIR__;
+        $candidate = __DIR__ . $path;
+        if ($prefix === '/cache/images/') {
+            $assetRoot = localnh_data_root();
+            $candidate = localnh_image_path(ltrim($path, '/'));
+        }
+        $filePath = $candidate !== false ? realpath($candidate) : false;
         // Compare with the literal allowed directory under the application root.
         // A symlink to a private file or another directory must not bypass this.
-        if ($filePath !== false && str_starts_with($filePath, __DIR__ . $prefix)
-            && !preg_match('#(?:^|/)\\.#', substr($filePath, strlen(__DIR__)))
+        if ($filePath !== false && str_starts_with($filePath, $assetRoot . $prefix)
+            && !preg_match('#(?:^|/)\\.#', substr($filePath, strlen($assetRoot)))
             && isset($types[strtolower(pathinfo($filePath, PATHINFO_EXTENSION))])
             && is_file($filePath) && is_readable($filePath)) {
             header('Content-Type: ' . $types[strtolower(pathinfo($filePath, PATHINFO_EXTENSION))]);

@@ -1,3 +1,4 @@
+from storage import data_root, data_path, image_path, gallery_path
 import sys, os
 from PIL import Image
 import sqlite3
@@ -9,9 +10,9 @@ try:
     out_path = sys.argv[2]
     script_dir = os.path.dirname(os.path.abspath(__file__))
     # Walk two levels up (script/py -> script -> repo root) to reach the DB.
-    root_dir = os.path.dirname(os.path.dirname(script_dir))
+    root_dir = str(data_root())
     
-    db_path = os.path.join(root_dir, "cache.sqlite")
+    db_path = str(data_path('cache.sqlite'))
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
     # pages_paths is stored as a JSON array of relative file paths, e.g.
@@ -27,7 +28,7 @@ try:
     imgs = []
     for p in pages:
         # Resolve relative paths against the repository root.
-        full_path = os.path.join(root_dir, p)
+        full_path = str(image_path(p))
         if os.path.exists(full_path):
             # PDF export requires RGB mode; WebP images were already converted
             # during download, but this is a safeguard for any edge cases.

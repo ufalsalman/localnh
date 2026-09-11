@@ -47,8 +47,8 @@ function formatBytes($bytes, $precision = 2) {
     return round($bytes, $precision) . ' ' . $units[$pow];
 }
 
-$totalBytes = getDirSize(__DIR__ . '/cache');
-$dbFile = __DIR__ . '/cache.sqlite';
+$totalBytes = getDirSize(localnh_data_path('cache'));
+$dbFile = localnh_data_path('cache.sqlite');
 if (file_exists($dbFile)) {
     $totalBytes += filesize($dbFile);
 }

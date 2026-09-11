@@ -149,3 +149,6 @@ For deployment configuration and troubleshooting (including an HTTP request sent
 ## Form expiration and preferences
 
 Login, settings, logout, and archive confirmation forms require cookies and a valid form token. If a form reports an invalid CSRF token, reload the page and try again; anonymous forms expire after two hours, and signing in changes the form context. Opening an old delete/toggle/logout URL no longer performs the action. Use the buttons in the current interface. Selecting the home sort dropdown saves the preference in your browser; visiting a shared sort URL only changes that view.
+
+
+For external storage and the requirement to stop writers before snapshot export/import, see [STORAGE.md](STORAGE.md). Setting LOCALNH_DATA_DIR does not migrate an existing collection.

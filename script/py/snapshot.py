@@ -1,179 +1,244 @@
-import os
-import sys
-import json
-import shutil
+"""Portable collection snapshots. Callers must stop web/CLI writers first.
+
+--offline is an explicit operator assertion, not an automatic service stop/lock.
+No secrets, sessions, or absolute storage paths are included in exported bundles.
+"""
+import argparse
 import datetime
-import subprocess
-import sqlite3
+import io
+import json
+import os
 from pathlib import Path
+import re
+import shutil
+import sqlite3
+import tarfile
+import tempfile
 
-# Resolve the repository root from this file's location:
-# __file__ -> script/py/snapshot.py -> script/py -> script -> ROOT
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# Optional config file that overrides the default "localnh" domain label used
-# in snapshot file names.
-CONFIG_DOMAIN = os.path.join(BASE_DIR, 'config', 'domain')
-SNAPSHOT_DIR = os.path.join(BASE_DIR, 'snapshot')
+from storage import data_path, session_dir
 
-def get_domain():
-    # The domain label is purely cosmetic — it prefixes the snapshot directory
-    # and file names. Defaults to 'localnh' if config/domain is absent/empty.
-    if os.path.exists(CONFIG_DOMAIN):
-        with open(CONFIG_DOMAIN, 'r') as f:
-            domain = f.read().strip()
-            if domain:
-                return domain
-    return 'localnh'
 
-def export_snapshot():
-    domain = get_domain()
-    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    # Snapshot bundle name encodes the domain and timestamp for easy sorting.
-    base_name = f"{domain}_snapshot_{timestamp}"
-    dest_dir = os.path.join(SNAPSHOT_DIR, base_name)
-    
-    os.makedirs(dest_dir, exist_ok=True)
-    print(f"[*] Created snapshot directory: {dest_dir}")
-    
-    # Copy the SQLite database file with metadata preservation (shutil.copy2).
-    db_src = os.path.join(BASE_DIR, 'cache.sqlite')
-    db_file = f"{base_name}_db.sqlite"
-    db_dest = os.path.join(dest_dir, db_file)
-    if os.path.exists(db_src):
-        shutil.copy2(db_src, db_dest)
-        print(f"[*] Exported database to: {db_file}")
-    else:
-        print("[!] Warning: cache.sqlite not found.")
-        
-    cache_dir = os.path.join(BASE_DIR, 'cache', 'images')
-    # The prefix string is used by both tar/split (export) and glob (import)
-    # to identify all archive parts belonging to this snapshot.
-    cache_prefix = f"{base_name}_cache.tar.part"
-    cache_dest_prefix = os.path.join(dest_dir, cache_prefix)
-    
-    if os.path.exists(cache_dir) and os.path.isdir(cache_dir):
-        print(f"[*] Compressing and splitting cache/images into 500MB chunks (this may take a while)...")
-        # Pipeline: tar streams the cache directory to stdout without writing a
-        # temporary file; split cuts the stream into 500 MB numbered chunks
-        # (-d = numeric suffixes, -b 500M = chunk size).
-        # Running with shell=True and cwd=BASE_DIR ensures the tar paths are
-        # relative (cache/images/...) so the archive can be extracted anywhere.
-        cmd = f"tar -cf - cache/images | split -d -b 500M - {cache_dest_prefix}"
-        process = subprocess.Popen(cmd, shell=True, cwd=BASE_DIR)
-        process.wait()
-        
-        if process.returncode == 0:
-            print(f"[*] Cache successfully compressed and split with prefix: {cache_prefix}")
-        else:
-            print(f"[!] Error compressing cache. Tar/split exited with code {process.returncode}")
-    else:
-        print("[!] Warning: cache/images directory not found or empty.")
-        
-    # Write a JSON manifest that records which files belong to this snapshot so
-    # import_snapshot can locate them without user guesswork.
-    index_file = f"{base_name}_index.json"
-    index_dest = os.path.join(dest_dir, index_file)
-    index_data = {
-        "domain": domain,
-        "timestamp": timestamp,
-        "base_name": base_name,
-        "db_file": db_file,
-        "cache_prefix": cache_prefix
-    }
-    with open(index_dest, 'w') as f:
-        json.dump(index_data, f, indent=4)
-    print(f"[*] Created manifest: {index_file}")
-    print(f"[*] Snapshot export completed successfully!")
+def require_offline(offline):
+    if not offline:
+        raise ValueError('Stop all web/CLI writers, then pass --offline; live snapshots are not supported')
+
+
+def sqlite_backup(source, destination):
+    with sqlite3.connect(Path(source).resolve().as_uri() + '?mode=ro', uri=True) as src:
+        if src.execute('PRAGMA integrity_check').fetchone()[0] != 'ok':
+            raise ValueError('Invalid SQLite database')
+        if not src.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='galleries'").fetchone():
+            raise ValueError('Snapshot does not contain a collection database')
+        with sqlite3.connect(destination) as dst:
+            src.backup(dst)
+
+
+class SplitWriter(io.RawIOBase):
+    def __init__(self, folder, prefix, size=500 * 1024 * 1024):
+        self.folder, self.prefix, self.limit = folder, prefix, size
+        self.index, self.used, self.part = 0, 0, None
+
+    def writable(self):
+        return True
+
+    def write(self, data):
+        view = memoryview(data)
+        while view:
+            if self.part is None:
+                self.part = (self.folder / f'{self.prefix}{self.index:02d}').open('xb')
+            amount = min(len(view), self.limit - self.used)
+            self.part.write(view[:amount]); view = view[amount:]; self.used += amount
+            if self.used == self.limit:
+                self.part.close(); self.part = None; self.index += 1; self.used = 0
+        return len(data)
+
+    def close(self):
+        if self.part:
+            self.part.close()
+        super().close()
+
+
+def export_snapshot(*, offline=False):
+    require_offline(offline)
+    domain_path = data_path('config/domain')
+    domain = domain_path.read_text().strip() if domain_path.exists() else 'localnh'
+    domain = re.sub(r'[^A-Za-z0-9_.-]', '_', domain).strip('.') or 'localnh'
+    stamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+    base = f'{domain}_snapshot_{stamp}'
+    folder = data_path('snapshot') / base
+    folder.mkdir(parents=True)
+    try:
+        db_file, prefix = base + '_db.sqlite', base + '_cache.tar.part'
+        sqlite_backup(data_path('cache.sqlite'), folder / db_file)
+        cache = data_path('cache/images')
+        def safe_member(member):
+            if not (member.isdir() or member.isfile()):
+                raise ValueError('Cache contains a link or special file')
+            validate_member_name(member.name)
+            return member
+        with SplitWriter(folder, prefix) as out:
+            with tarfile.open(fileobj=out, mode='w|', dereference=False) as tar:
+                tar.add(cache, arcname='cache/images', filter=safe_member)
+        manifest = folder / (base + '_index.json')
+        manifest.write_text(json.dumps({'domain': domain, 'timestamp': stamp, 'base_name': base,
+                                        'db_file': db_file, 'cache_prefix': prefix}, indent=2))
+        print('Snapshot export completed: ' + str(manifest))
+        return manifest
+    except BaseException:
+        shutil.rmtree(folder)
+        raise
+
 
 def revoke_login_sessions():
-    # Separate session storage is never restored with collection snapshots.
-    session_dir = os.environ.get('LOCALNH_SESSION_DIR') or os.path.join(BASE_DIR, 'sessions')
-    session_db = os.path.join(session_dir, 'sessions.sqlite')
+    path = session_dir() / 'sessions.sqlite'
+    if path.is_symlink():
+        raise ValueError('Session database cannot be a symlink')
     try:
-        Path(session_db).stat()
+        path.stat()
     except FileNotFoundError:
         return
-    # Permission errors abort import; never treat unreadable storage as absent.
-    with sqlite3.connect(Path(session_db).resolve().as_uri() + '?mode=rw', uri=True, timeout=5) as sessions:
-        if sessions.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sessions'").fetchone():
+    with sqlite3.connect(path.resolve().as_uri() + '?mode=rw', uri=True, timeout=5) as sessions:
+        if sessions.execute("SELECT 1 FROM sqlite_master WHERE name='sessions'").fetchone():
             sessions.execute('DELETE FROM sessions')
 
 
-def import_snapshot(index_path):
-    if not os.path.exists(index_path):
-        print(f"[!] Error: Index file not found at {index_path}")
-        sys.exit(1)
-        
-    # Resolve the directory that contains the index.json file; all other
-    # snapshot files are expected to be in the same directory.
-    index_dir = os.path.dirname(os.path.abspath(index_path))
-    
-    with open(index_path, 'r') as f:
-        try:
-            index_data = json.load(f)
-        except Exception as e:
-            print(f"[!] Error reading JSON: {e}")
-            sys.exit(1)
-            
-    db_file = index_data.get('db_file')
-    cache_prefix = index_data.get('cache_prefix')
-    
-    # Both fields are required; abort early with a clear error rather than
-    # failing later with a cryptic KeyError.
-    if not db_file or not cache_prefix:
-        print("[!] Error: Invalid index.json format. Missing db_file or cache_prefix.")
-        sys.exit(1)
-        
-    db_src = os.path.join(index_dir, db_file)
-    # Restore the database directly into the repository root, overwriting any
-    # existing cache.sqlite (intentional — import replaces the current DB).
-    db_dest = os.path.join(BASE_DIR, 'cache.sqlite')
-    if os.path.exists(db_src):
-        print(f"[*] Restoring database from {db_file}...")
+def bundle_name(value):
+    if not isinstance(value, str) or not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]*', value):
+        raise ValueError('Unsafe snapshot manifest filename')
+    return value
+
+
+def validate_member_name(name):
+    parts = name.rstrip('/').split('/')
+    if parts[:2] != ['cache', 'images'] or any(not p or p.startswith('.') or '\\' in p or '%' in p or any(ord(c) < 32 for c in p) for p in parts):
+        raise ValueError('Unsafe snapshot member path')
+    return parts
+
+
+def write_recovery_journal(path, phase, database, images):
+    """Publish a complete journal record; a process kill cannot truncate it.
+
+    This does not guarantee filesystem durability across power loss.
+    backup-complete and later phases mean previous-images finished copying.
+    """
+    temporary = path.with_suffix('.json.tmp')
+    temporary.write_text(json.dumps({'phase': phase, 'database': str(database),
+                                     'images': str(images)}, indent=2))
+    temporary.replace(path)
+
+
+def import_snapshot(index_path, *, offline=False):
+    require_offline(offline)
+    manifest = Path(index_path)
+    if manifest.is_symlink():
+        raise ValueError('Manifest must not be a symlink')
+    info = json.loads(manifest.read_text())
+    db_file, prefix = bundle_name(info.get('db_file')), bundle_name(info.get('cache_prefix'))
+    bundle = manifest.resolve().parent
+    source_db = bundle / db_file
+    if not source_db.is_file() or source_db.is_symlink():
+        raise ValueError('Snapshot database missing or unsafe')
+    parts = []
+    for path in bundle.iterdir():
+        if path.name.startswith(prefix):
+            suffix = path.name[len(prefix):]
+            if not re.fullmatch(r'\d{2,}', suffix) or path.is_symlink() or not path.is_file():
+                raise ValueError('Invalid snapshot part')
+            parts.append((int(suffix), path))
+    parts.sort()
+    if not parts or [n for n, _ in parts] != list(range(len(parts))):
+        raise ValueError('Missing or duplicate snapshot part')
+    # Stage and rename images on the cache filesystem, including legacy bind mounts.
+    stage = Path(tempfile.mkdtemp(prefix='localnh-import-', dir=data_path('cache')))
+    activating = False
+    try:
+        sqlite_backup(source_db, stage / 'new.sqlite')
+        archive = stage / 'incoming.tar'
+        with archive.open('xb') as out:
+            for _, part in parts:
+                with part.open('rb') as stream:
+                    shutil.copyfileobj(stream, out)
+        seen = set()
+        with tarfile.open(archive, 'r:') as tar:
+            for member in tar:
+                relative = '/'.join(validate_member_name(member.name))
+                if relative in seen or not (member.isfile() or member.isdir()):
+                    raise ValueError('Duplicate, linked or special snapshot member')
+                seen.add(relative)
+                target = stage / 'new' / relative
+                if member.isdir():
+                    target.mkdir(parents=True, exist_ok=True, mode=0o750)
+                else:
+                    target.parent.mkdir(parents=True, exist_ok=True, mode=0o750)
+                    with tar.extractfile(member) as src, target.open('xb') as dst:
+                        shutil.copyfileobj(src, dst)
+                    target.chmod(0o640)
+        archive.unlink()
+        new_images = stage / 'new/cache/images'
+        if not new_images.is_dir():
+            raise ValueError('Snapshot has no cache/images directory')
+        # Validate every stored image reference before activating the collection.
+        with sqlite3.connect(stage / 'new.sqlite') as db:
+            for cover, pages in db.execute('SELECT cover_path,pages_paths FROM galleries'):
+                paths = json.loads(pages or '[]')
+                if not isinstance(paths, list):
+                    raise ValueError('Invalid snapshot page list')
+                for logical in ([cover] if cover else []) + paths:
+                    if not isinstance(logical, str):
+                        raise ValueError('Invalid snapshot image reference')
+                    validate_member_name(logical)
+                    if not (stage / 'new' / logical).is_file():
+                        raise ValueError('Snapshot references a missing image')
+        destination = data_path('cache.sqlite')
+        active_images = data_path('cache/images')
+        sqlite_backup(destination, stage / 'previous.sqlite')
+        journal = stage / 'recovery.json'
+        write_recovery_journal(journal, 'prepared', destination, active_images)
+        if os.path.ismount(active_images):
+            raise ValueError('Mount the cache parent, not cache/images itself, for snapshot replacement')
+        # Copy before activation: overlay filesystems can reject directory renames
+        # with EXDEV even on a single mount. A failed backup cannot alter live data.
+        shutil.copytree(active_images, stage / 'previous-images', symlinks=True)
+        write_recovery_journal(journal, 'backup-complete', destination, active_images)
         revoke_login_sessions()
-        shutil.copy2(db_src, db_dest)
-    else:
-        print(f"[!] Warning: Database file {db_file} not found in snapshot directory.")
-        
-    import glob
-    # Glob for all split chunks matching the prefix (e.g. prefix00, prefix01…)
-    cache_parts = glob.glob(os.path.join(index_dir, f"{cache_prefix}*"))
-    
-    if cache_parts:
-        print(f"[*] Found {len(cache_parts)} cache archive parts. Recombining and extracting (this may take a while)...")
-        # cat concatenates the numbered chunks back into a single stream; tar
-        # reads from stdin (-xf -) and extracts into BASE_DIR, restoring the
-        # original cache/images directory structure.
-        cmd = f"cat {os.path.join(index_dir, cache_prefix)}* | tar -xf -"
-        process = subprocess.Popen(cmd, shell=True, cwd=BASE_DIR)
-        process.wait()
-        
-        if process.returncode == 0:
-            print(f"[*] Cache successfully restored!")
-        else:
-            print(f"[!] Error extracting cache. Cat/tar exited with code {process.returncode}")
-    else:
-        print(f"[!] Warning: No cache archive parts found matching prefix {cache_prefix}")
-        
-    print(f"[*] Snapshot import completed successfully!")
+        activating = True
+        try:
+            shutil.rmtree(active_images)
+            write_recovery_journal(journal, 'images-saved', destination, active_images)
+            new_images.rename(active_images)
+            # Backup into the existing database works with legacy file bind mounts.
+            sqlite_backup(stage / 'new.sqlite', destination)
+        except BaseException:
+            try:
+                if active_images.exists():
+                    shutil.rmtree(active_images)
+                # Retain the backup so a second recovery attempt remains possible
+                # if restoring either the images or the database fails.
+                shutil.copytree(stage / 'previous-images', active_images, symlinks=True)
+                sqlite_backup(stage / 'previous.sqlite', destination)
+                write_recovery_journal(journal, 'rolled-back', destination, active_images)
+            except BaseException:
+                write_recovery_journal(journal, 'recovery-failed', destination, active_images)
+                raise
+            raise
+        write_recovery_journal(journal, 'complete', destination, active_images)
+        print('Snapshot import completed. Recovery data retained at: ' + str(stage))
+        return stage
+    except BaseException:
+        if not activating:
+            shutil.rmtree(stage)
+        raise
+
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print("Usage:")
-        print("  python snapshot.py export")
-        print("  python snapshot.py import <path_to_index.json>")
-        sys.exit(1)
-        
-    action = sys.argv[1]
-    
-    if action == 'export':
-        export_snapshot()
-    elif action == 'import':
-        if len(sys.argv) < 3:
-            print("Error: Missing path to index.json")
-            print("Usage: python snapshot.py import <path_to_index.json>")
-            sys.exit(1)
-        import_snapshot(sys.argv[2])
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('action', choices=['export', 'import'])
+    parser.add_argument('index', nargs='?')
+    parser.add_argument('--offline', action='store_true', help='Confirm all web/CLI writers have been stopped')
+    args = parser.parse_args()
+    if args.action == 'export':
+        export_snapshot(offline=args.offline)
+    elif args.index:
+        import_snapshot(args.index, offline=args.offline)
     else:
-        print(f"Error: Unknown action '{action}'")
-        sys.exit(1)
+        parser.error('import requires the manifest path')

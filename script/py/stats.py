@@ -1,3 +1,4 @@
+from storage import data_root, data_path, image_path, gallery_path
 import os
 import sys
 import sqlite3
@@ -7,9 +8,9 @@ import subprocess
 
 # Resolve repository root directory from this script's location
 script_dir = os.path.dirname(os.path.abspath(__file__))
-root_dir = os.path.dirname(os.path.dirname(script_dir))
-db_path = os.path.join(root_dir, "cache.sqlite")
-cache_dir = os.path.join(root_dir, "cache")
+root_dir = str(data_root())
+db_path = str(data_path('cache.sqlite'))
+cache_dir = str(data_path('cache'))
 
 # Query database for total gallery count and latest archive timestamp
 titles_count = 0

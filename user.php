@@ -4,7 +4,7 @@
 if (!function_exists('getSiteName')) {
 function getSiteName() {
     // Site title is stored in a flat text file so it can be edited without touching code.
-    $path = __DIR__ . '/config/title';
+    $path = localnh_data_path('config/title');
     if (file_exists($path)) {
         $content = trim(file_get_contents($path));
         if ($content !== '') return $content;
@@ -54,7 +54,7 @@ function getThemeVars($bgColor = null) {
 $themeCss = getThemeVars();
 
 // Favicon path stored in config/favicon may be a relative path, absolute URL, or root-relative.
-$faviconFile = __DIR__ . '/config/favicon';
+$faviconFile = localnh_data_path('config/favicon');
 $faviconHtml = '';
 if (file_exists($faviconFile)) {
     $faviconPath = trim(file_get_contents($faviconFile));

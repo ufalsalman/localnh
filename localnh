@@ -10,6 +10,12 @@ if [ ! -f "$PYTHON_EXEC" ]; then
     PYTHON_EXEC="python"
 fi
 
+# Container CLI writers must share ownership with PHP, including files created
+# after startup. Explicit storage initialization remains an operator/root task.
+if [ "${LOCALNH_CONTAINER:-}" = "1" ] && [ "$(id -u)" = "0" ] && ! { [ "${1:-}" = "storage" ] && [ "${2:-}" = "init" ]; }; then
+    exec runuser -u www-data -- "$SCRIPT_DIR/localnh" "$@"
+fi
+
 # Subcommand dispatching
 if [ "$1" = "delete" ] || [ "$1" = "--delete" ] || [ "$1" = "-d" ]; then
     shift
@@ -23,6 +29,9 @@ elif [ "$1" = "html" ] || [ "$1" = "--html" ]; then
 elif [ "$1" = "snapshot" ]; then
     shift
     "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/snapshot.py" "$@"
+elif [ "$1" = "storage" ]; then
+    shift
+    "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/storage.py" "$@"
 elif [ "$1" = "stats" ] || [ "$1" = "--stats" ] || [ "$1" = "-s" ]; then
     shift
     "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/stats.py" "$@"
@@ -30,13 +39,15 @@ elif [ -z "$1" ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "localnh CLI Tool"
     echo "Usage:"
     echo "  ./localnh <gallery_id>             Fetch a gallery by ID"
+    echo "  ./localnh storage paths           Show selected paths (no secrets)"
+    echo "  ./localnh storage init            Explicitly initialize empty external storage"
     echo "  ./localnh stats                    Display library statistics"
     echo "  ./localnh delete <id>              Delete gallery entry and cached images"
     echo "  ./localnh delete purge             Delete all galleries and cache"
     echo "  ./localnh pdf <id> <out_path>      Export gallery to PDF"
     echo "  ./localnh html <id> <out_path>     Export gallery to HTML"
-    echo "  ./localnh snapshot export          Export DB and cache to snapshot/"
-    echo "  ./localnh snapshot import <path>   Import snapshot from index.json"
+    echo "  ./localnh snapshot export --offline Export DB/cache with writers stopped"
+    echo "  ./localnh snapshot import <path> --offline Import with writers stopped"
     exit 1
 elif [ "$1" = "fetch" ]; then
     shift
