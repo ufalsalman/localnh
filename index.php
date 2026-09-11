@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . "/storage.php";
-// Bootstrap the SQLite database connection using a file-based cache in the project root.
+// Open the collection database in the selected legacy or external data root.
 // PDO is used for its unified API and prepared-statement support across DB drivers.
 $db = new PDO('sqlite:' . localnh_data_path('cache.sqlite'));
 // Throw exceptions on query errors instead of silently returning false.
@@ -25,22 +25,12 @@ $db->exec("CREATE TABLE IF NOT EXISTS galleries (
 ");
 
 require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/presentation.php';
 
 // --- Favicon config ---
 // config/favicon may contain a relative path (e.g. "img/icon.png") or an absolute/external URL.
 // Relative paths are normalised to root-relative so they work correctly from any sub-path.
-$faviconFile = localnh_data_path('config/favicon');
-$faviconHtml = '';
-if (file_exists($faviconFile)) {
-    $faviconPath = trim(file_get_contents($faviconFile));
-    if ($faviconPath !== '') {
-        // Prepend '/' only when the path is not already absolute (starts with '/') or a full URL.
-        if (strpos($faviconPath, 'http') !== 0 && strpos($faviconPath, '/') !== 0) {
-            $faviconPath = '/' . $faviconPath;
-        }
-        $faviconHtml = "<link rel='icon' href='" . htmlspecialchars($faviconPath) . "'>";
-    }
-}
+$faviconHtml = getFaviconHtml();
 
 // --- Public archive toggle ---
 // config/public contains the literal string 'on' to allow unauthenticated users to trigger
@@ -50,145 +40,8 @@ $publicArchiveEnabled = (file_exists($paFile) && trim(file_get_contents($paFile)
 // $canArchive is true for logged-in users OR when public archiving is enabled site-wide.
 $canArchive = ($isLoggedIn || $publicArchiveEnabled);
 
-/*
- * getDominantColor()
- *
- * Samples a representative pixel from an image by downscaling it to 1×1 via
- * imagecopyresampled(), which effectively computes a weighted-average colour
- * without iterating every pixel — fast even for large images.
- *
- * The hue is then re-mapped to an HSL value whose lightness targets the
- * current theme (dark ≈ 12 %, light ≈ 88 %) while retaining the original hue.
- *
- * @param string $filePath   Relative path from __DIR__ to the image file.
- * @param bool   $isDarkMode When true, targets a very dark background (L≈0.12);
- *                           when false, a very light background (L≈0.88).
- * @return string HSL CSS string (e.g. "hsl(220, 40%, 12%)") or a safe fallback hex.
- */
-function getDominantColor($filePath, $isDarkMode = true) {
-    $fullPath = localnh_image_path($filePath);
-    // Return a plain dark/light fallback when the file is missing or unreadable.
-    $defaultBg = $isDarkMode ? '#111' : '#fff';
-    if ($fullPath === false || !is_file($fullPath)) return $defaultBg;
-    // @ suppresses warnings for corrupt/truncated files; $img stays false on failure.
-    $mime = @mime_content_type($fullPath);
-    $img = false;
-    if ($mime === 'image/webp') $img = @imagecreatefromwebp($fullPath);
-    elseif ($mime === 'image/jpeg') $img = @imagecreatefromjpeg($fullPath);
-    elseif ($mime === 'image/png') $img = @imagecreatefrompng($fullPath);
-    if (!$img) return $defaultBg;
-    
-    // Downsample the entire image to a single pixel; the colour is the visual average.
-    $tmp = imagecreatetruecolor(1, 1);
-    imagecopyresampled($tmp, $img, 0, 0, 0, 0, 1, 1, imagesx($img), imagesy($img));
-    // imagecolorat returns a packed 32-bit integer: 0x00RRGGBB.
-    $rgb = imagecolorat($tmp, 0, 0);
-    imagedestroy($tmp);
-    imagedestroy($img);
-    
-    // Unpack each channel via bit-shifting and normalise to [0.0, 1.0] for HSL maths.
-    $r = (($rgb >> 16) & 0xFF) / 255;
-    $g = (($rgb >> 8) & 0xFF) / 255;
-    $b = ($rgb & 0xFF) / 255;
-    
-    // Standard RGB → HSL conversion.
-    $max = max($r, $g, $b);
-    $min = min($r, $g, $b);
-    $h = 0; $s = 0; $l = ($max + $min) / 2;
-    if ($max != $min) {
-        $d = $max - $min;
-        // Saturation formula differs based on whether lightness is above or below 0.5.
-        $s = $l > 0.5 ? $d / (2 - $max - $min) : $d / ($max + $min);
-        if ($max == $r) $h = ($g - $b) / $d + ($g < $b ? 6 : 0);
-        elseif ($max == $g) $h = ($b - $r) / $d + 2;
-        else $h = ($r - $g) / $d + 4;
-        $h /= 6; // Normalise hue to [0.0, 1.0].
-    }
-    // Override lightness to match the theme; keep the source image's hue.
-    // A minimum saturation of 0.20 prevents washed-out greys from producing dull backgrounds.
-    if ($isDarkMode) {
-        $targetL = 0.12;
-        $targetS = max($s, 0.20);
-    } else {
-        $targetL = 0.88;
-        $targetS = max($s, 0.20);
-    }
-    return 'hsl(' . round($h * 360) . ', ' . round($targetS * 100) . '%, ' . round($targetL * 100) . '%)';
-}
-
-// getSiteName(): reads the display name from config/title; falls back to 'localnh'.
-function getSiteName() {
-    $path = localnh_data_path('config/title');
-    if (file_exists($path)) {
-        $content = trim(file_get_contents($path));
-        if ($content !== '') return $content;
-    }
-    return 'localnh';
-}
 $siteName = getSiteName();
-
-/*
- * getFooterHtml()
- * Reads config/footer, applies a minimal Markdown link conversion
- * ([text](url) → <a href="url">text</a>), then nl2br for line breaks.
- * Only link syntax is processed — other Markdown is left as plain text.
- */
-function getFooterHtml() {
-    $path = localnh_data_path('config/footer');
-    if (file_exists($path)) {
-        $md = trim(file_get_contents($path));
-        if ($md !== '') {
-            $html = preg_replace('/\[([^\]]+)\]\(([^)]+)\)/', '<a href="$2">$1</a>', $md);
-            return nl2br($html);
-        }
-    }
-    return '';
-}
 $footerHtml = getFooterHtml();
-
-/*
- * getThemeVars()
- * Generates CSS custom-property declarations driven by two cookies:
- *   - 'dark_mode'   : 'on' (default) or 'off'
- *   - 'blur_covers' : 'on' only honoured for authenticated users (privacy feature)
- *
- * An optional $bgColor override lets gallery pages inject a dominant-colour
- * background without re-computing the full palette here.
- * Returns a string of CSS variable assignments for insertion inside :root { }.
- */
-function getThemeVars($bgColor = null) {
-    global $isLoggedIn;
-    // Default dark mode to 'on' when the cookie is absent (first-time visitors).
-    $darkMode = (isset($_COOKIE['dark_mode']) ? $_COOKIE['dark_mode'] : 'on') === 'on';
-    // Cover blur is a privacy/NSFW-safety feature — only active for authenticated users.
-    $blurCovers = (isset($_COOKIE['blur_covers']) && $_COOKIE['blur_covers'] === 'on') ? '25px' : '0px';
-    if ($bgColor === null) {
-        $bgColor = $darkMode ? '#111' : '#fff';
-    }
-    $textColor = $darkMode ? '#fff' : '#111';
-    $btnBg = $darkMode ? '#fff' : '#111';
-    $btnText = $darkMode ? '#111' : '#fff';
-    $btnHoverBg = $darkMode ? '#ddd' : '#333';
-    $btnHoverBorder = $darkMode ? '#ddd' : '#333';
-    $inputBg = $darkMode ? '#111' : '#fff';
-    $inputText = $darkMode ? '#fff' : '#111';
-    $inputBorder = $darkMode ? '#fff' : '#111';
-    $dotsColor = $darkMode ? '#666' : '#999';
-
-    return "
-        --bg-color: {$bgColor};
-        --text-color: {$textColor};
-        --btn-bg: {$btnBg};
-        --btn-text: {$btnText};
-        --btn-hover-bg: {$btnHoverBg};
-        --btn-hover-border: {$btnHoverBorder};
-        --input-bg: {$inputBg};
-        --input-text: {$inputText};
-        --input-border: {$inputBorder};
-        --dots-color: {$dotsColor};
-        --cover-blur: {$blurCovers};
-    ";
-}
 
 // --- Front-controller routing ---
 // Caddy and the documented PHP development server route all requests here.

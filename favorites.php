@@ -1,90 +1,15 @@
 <?php
-// Functions are wrapped in function_exists() guards because favorites.php may be included
-// by the router after another page that already declared these helpers, preventing fatal
-// "cannot redeclare function" errors.
-if (!function_exists('getSiteName')) {
-function getSiteName() {
-    // Reads the site title from a flat file; falls back to 'localnh' if the file is missing or empty.
-    $path = localnh_data_path('config/title');
-    if (file_exists($path)) {
-        $content = trim(file_get_contents($path));
-        if ($content !== '') return $content;
-    }
-    return 'localnh';
-}
-}
+// Page content is served through index.php. Shared presentation is loaded once.
+require_once __DIR__ . '/presentation.php';
+
 $siteName = getSiteName();
-
-if (!function_exists('getThemeVars')) {
-function getThemeVars($bgColor = null) {
-    global $isLoggedIn;
-    // dark_mode cookie defaults to 'on' if absent (i.e. dark by default).
-    $darkMode = (isset($_COOKIE['dark_mode']) ? $_COOKIE['dark_mode'] : 'on') === 'on';
-    // Cover blurring is only applied when the user is authenticated ($isLoggedIn);
-    // this prevents unauthenticated visitors from toggling the blur setting server-side.
-    $blurCovers = (isset($_COOKIE['blur_covers']) && $_COOKIE['blur_covers'] === 'on') ? '25px' : '0px';
-    if ($bgColor === null) {
-        $bgColor = $darkMode ? '#111' : '#fff';
-    }
-    $textColor = $darkMode ? '#fff' : '#111';
-    $btnBg = $darkMode ? '#fff' : '#111';
-    $btnText = $darkMode ? '#111' : '#fff';
-    $btnHoverBg = $darkMode ? '#ddd' : '#333';
-    $btnHoverBorder = $darkMode ? '#ddd' : '#333';
-    $inputBg = $darkMode ? '#111' : '#fff';
-    $inputText = $darkMode ? '#fff' : '#111';
-    $inputBorder = $darkMode ? '#fff' : '#111';
-    $dotsColor = $darkMode ? '#666' : '#999';
-
-    // Returns a ready-to-embed string of CSS custom-property assignments.
-    return "
-        --bg-color: {$bgColor};
-        --text-color: {$textColor};
-        --btn-bg: {$btnBg};
-        --btn-text: {$btnText};
-        --btn-hover-bg: {$btnHoverBg};
-        --btn-hover-border: {$btnHoverBorder};
-        --input-bg: {$inputBg};
-        --input-text: {$inputText};
-        --input-border: {$inputBorder};
-        --dots-color: {$dotsColor};
-        --cover-blur: {$blurCovers};
-    ";
-}
-}
 
 $themeCss = getThemeVars();
 
-if (!function_exists('getFooterHtml')) {
-function getFooterHtml() {
-    // Reads footer content from a flat file and applies a minimal Markdown-link
-    // conversion ([text](url) → <a href="url">text</a>) before rendering.
-    $path = localnh_data_path('config/footer');
-    if (file_exists($path)) {
-        $md = trim(file_get_contents($path));
-        if ($md !== '') {
-            $html = preg_replace('/\[([^\]]+)\]\(([^)]+)\)/', '<a href="$2">$1</a>', $md);
-            return nl2br($html);
-        }
-    }
-    return '';
-}
-}
 $footerHtml = getFooterHtml();
 
 // Favicon path may be relative or absolute; normalise relative paths by prepending '/'.
-$faviconFile = localnh_data_path('config/favicon');
-$faviconHtml = '';
-if (file_exists($faviconFile)) {
-    $faviconPath = trim(file_get_contents($faviconFile));
-    if ($faviconPath !== '') {
-        // Only prepend '/' if the path is not already an absolute URL or root-relative path.
-        if (strpos($faviconPath, 'http') !== 0 && strpos($faviconPath, '/') !== 0) {
-            $faviconPath = '/' . $faviconPath;
-        }
-        $faviconHtml = "<link rel='icon' href='" . htmlspecialchars($faviconPath) . "'>";
-    }
-}
+$faviconHtml = getFaviconHtml();
 
 // $isOrphanPage is set to true by the router when serving /favorites/orphan.
 // It repurposes this same template for the orphaned-favorites view.

@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . "/storage.php";
+require_once __DIR__ . "/presentation.php";
 /**
  * RSS 2.0 Feed Generator
  * Serves an XML feed of the 50 most recently archived galleries.
@@ -9,13 +9,7 @@ require_once __DIR__ . "/storage.php";
 $db = new PDO('sqlite:' . localnh_data_path('cache.sqlite'));
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-// Read custom site name from config/title
-$path = localnh_data_path('config/title');
-$siteName = 'localnh';
-if (file_exists($path)) {
-    $content = trim(file_get_contents($path));
-    if ($content !== '') $siteName = $content;
-}
+$siteName = getSiteName();
 
 // Build absolute base URL for links and image sources
 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';

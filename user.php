@@ -1,71 +1,13 @@
 <?php
-// Functions are declared inside function_exists() guards to allow this file to be
-// included by the router even when another page has already defined these helpers.
-if (!function_exists('getSiteName')) {
-function getSiteName() {
-    // Site title is stored in a flat text file so it can be edited without touching code.
-    $path = localnh_data_path('config/title');
-    if (file_exists($path)) {
-        $content = trim(file_get_contents($path));
-        if ($content !== '') return $content;
-    }
-    return 'localnh';
-}
-}
+// Page content is served through index.php. Shared presentation is loaded once.
+require_once __DIR__ . '/presentation.php';
+
 $siteName = getSiteName();
-
-if (!function_exists('getThemeVars')) {
-function getThemeVars($bgColor = null) {
-    global $isLoggedIn;
-    // dark_mode cookie defaults to 'on'; the site is dark-themed by default.
-    $darkMode = (isset($_COOKIE['dark_mode']) ? $_COOKIE['dark_mode'] : 'on') === 'on';
-    // Cover blur is a logged-in-only feature; the cookie is ignored for unauthenticated users.
-    $blurCovers = (isset($_COOKIE['blur_covers']) && $_COOKIE['blur_covers'] === 'on') ? '25px' : '0px';
-    if ($bgColor === null) {
-        $bgColor = $darkMode ? '#111' : '#fff';
-    }
-    $textColor = $darkMode ? '#fff' : '#111';
-    $btnBg = $darkMode ? '#fff' : '#111';
-    $btnText = $darkMode ? '#111' : '#fff';
-    $btnHoverBg = $darkMode ? '#ddd' : '#333';
-    $btnHoverBorder = $darkMode ? '#ddd' : '#333';
-    $inputBg = $darkMode ? '#111' : '#fff';
-    $inputText = $darkMode ? '#fff' : '#111';
-    $inputBorder = $darkMode ? '#fff' : '#111';
-    $dotsColor = $darkMode ? '#666' : '#999';
-
-    // Returns a CSS custom-property block ready to embed inside :root { ... }.
-    return "
-        --bg-color: {$bgColor};
-        --text-color: {$textColor};
-        --btn-bg: {$btnBg};
-        --btn-text: {$btnText};
-        --btn-hover-bg: {$btnHoverBg};
-        --btn-hover-border: {$btnHoverBorder};
-        --input-bg: {$inputBg};
-        --input-text: {$inputText};
-        --input-border: {$inputBorder};
-        --dots-color: {$dotsColor};
-        --cover-blur: {$blurCovers};
-    ";
-}
-}
 
 $themeCss = getThemeVars();
 
 // Favicon path stored in config/favicon may be a relative path, absolute URL, or root-relative.
-$faviconFile = localnh_data_path('config/favicon');
-$faviconHtml = '';
-if (file_exists($faviconFile)) {
-    $faviconPath = trim(file_get_contents($faviconFile));
-    if ($faviconPath !== '') {
-        // Prepend '/' only for paths that are neither absolute URLs nor already root-relative.
-        if (strpos($faviconPath, 'http') !== 0 && strpos($faviconPath, '/') !== 0) {
-            $faviconPath = '/' . $faviconPath;
-        }
-        $faviconHtml = "<link rel='icon' href='" . htmlspecialchars($faviconPath) . "'>";
-    }
-}
+$faviconHtml = getFaviconHtml();
 ?>
 <!DOCTYPE html>
 <html>

@@ -199,3 +199,11 @@ bootstrap.php validates POST tokens before protected handlers act. Authenticated
 
 
 For external storage and the requirement to stop writers before snapshot export/import, see [STORAGE.md](STORAGE.md). Setting LOCALNH_DATA_DIR does not migrate an existing collection.
+
+## Shared presentation helpers
+
+`presentation.php` owns the site title, footer HTML, favicon link, theme variables and dominant-image color helpers. The front controller loads it with `require_once`; page templates may require it explicitly without redeclaring functions. RSS uses the same title helper. Loading this module does not open the collection/session database, authenticate a request, emit headers, or render a page. `storage.php` remains responsible for selecting and validating legacy/external data paths, while `bootstrap.php` owns authentication and CSRF.
+
+Missing or blank title configuration falls back to `localnh`; missing/blank footer and favicon produce empty output. Relative favicon paths keep the existing root-relative normalization and HTML attribute escaping. Footer behavior remains the existing Markdown-link conversion followed by line-break conversion; it is not an HTML sanitizer and configured HTML is preserved. Themes retain the current default dark palette, browser blur preference for both anonymous and authenticated users, and optional gallery background override. Stage 6 consolidates these behaviors without changing authorization, routes, storage layout, or the renderer's input policy. Broader input/output security review remains separate work.
+
+Update shared presentation behavior in this module instead of copying functions into individual templates. The presentation parity regression compares the previous and new image with synthetic data across both storage layouts, display configuration variants, theme/blur cookies, and authenticated views. Nondeterministic CSRF token values and RSS generation timestamps are normalized; other response content/status and relevant headers are compared directly.
