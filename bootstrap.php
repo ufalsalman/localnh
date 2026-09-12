@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . "/storage.php";
-// Shared authentication state. Presentation helpers stay in their existing files.
+require_once __DIR__ . '/login_limits.php';
+// Shared authentication state; presentation helpers live in presentation.php.
 const LOCALNH_SESSION_TTL = 86400 * 30;
 
 function localnh_auth_unavailable(): never {
@@ -124,9 +125,18 @@ function localnh_require_admin_post(): void {
 
 function localnh_login(string $user, string $password): bool {
     global $authDb, $authCredentials;
-    if ($authCredentials === null || $user !== $authCredentials['user']
-        || !password_verify($password, $authCredentials['hash'])) return false;
     try {
+        $limits = localnh_login_limits_db();
+        $reservation = localnh_login_reserve($limits, localnh_login_peer($_SERVER['REMOTE_ADDR'] ?? ''), time());
+        if ($reservation['retry'] > 0) {
+            http_response_code(429);
+            header('Cache-Control: no-store');
+            header('Retry-After: ' . $reservation['retry']);
+            exit('Too many login attempts. Try again in ' . $reservation['retry'] . ' seconds.');
+        }
+        if ($authCredentials === null || $user !== $authCredentials['user']
+            || !password_verify($password, $authCredentials['hash'])) return false;
+        localnh_login_refund($limits, $reservation);
         $token = bin2hex(random_bytes(32));
         $now = time();
         $authDb->beginTransaction();

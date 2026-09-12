@@ -247,6 +247,10 @@ Login, browser preference toggles, and archiving also require POST and CSRF chec
 
 ---
 
+## Login protection
+
+Login attempts have short peer and instance-wide limits. If you receive HTTP 429, wait for Retry-After before retrying. Localhost login and anonymous exports remain supported. See [deployment guidance](DEPLOYMENT.md#login-attempt-limits) for shared-proxy behavior and owner recovery.
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).

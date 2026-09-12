@@ -1,8 +1,14 @@
-from storage import data_root, data_path, image_path, gallery_path
+from storage import data_root, data_path, image_path, gallery_path, collection_changed
 import sys
 import os
 import sqlite3
 import shutil
+from archive_runner import acquire
+try:
+    archive_lock = acquire()
+except BlockingIOError:
+    print("An archive or deletion is active. Retry shortly.", file=sys.stderr)
+    sys.exit(75)
 
 if len(sys.argv) < 2:
     print("Missing ID")
@@ -56,3 +62,5 @@ else:
         shutil.rmtree(cache_dir)
     print(f"Deleted {code}")
 
+
+collection_changed()

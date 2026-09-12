@@ -4,33 +4,16 @@
 $themeCss = getThemeVars();
 
 // Read the category filter from the URL, e.g. /directory?cat=tags
-$cat = $_GET['cat'] ?? '';
+$cat = is_string($_GET['cat'] ?? '') ? ($_GET['cat'] ?? '') : '';
 // Read sort preference; default is by occurrence count (descending).
-$sort = $_GET['sort'] ?? 'counts';
+$sort = is_string($_GET['sort'] ?? 'counts') ? ($_GET['sort'] ?? 'counts') : 'counts';
 
-// Fetch only the JSON-encoded 'tags' column for every gallery row.
-// Each value is a JSON object like: {"tags":[...], "artists":[...], "parodies":[...], ...}
-$stmt = $db->query("SELECT tags FROM galleries");
-$allTagsJson = $stmt->fetchAll(PDO::FETCH_COLUMN);
-
-// Tally how many times each term appears within the requested category.
-// The in_array whitelist prevents arbitrary JSON key access via URL manipulation.
+require_once __DIR__ . '/aggregation.php';
+header('Cache-Control: no-store');
 $counts = [];
-if ($cat !== '' && in_array($cat, ['tags', 'parodies', 'characters', 'artists', 'circles'])) {
-    foreach ($allTagsJson as $jsonStr) {
-        $data = json_decode($jsonStr, true);
-        // Skip rows where the chosen category key is absent or not an array.
-        if (isset($data[$cat]) && is_array($data[$cat])) {
-            foreach ($data[$cat] as $item) {
-                if (!isset($counts[$item])) {
-                    $counts[$item] = 0;
-                }
-                $counts[$item]++;
-            }
-        }
-    }
+if (is_string($cat) && in_array($cat, ['tags', 'parodies', 'characters', 'artists', 'circles'], true)) {
+    $counts = localnh_aggregate('tags')[$cat];
 }
-
 // Convert the associative counts map into an indexed array suitable for usort().
 $items = [];
 foreach ($counts as $name => $count) {

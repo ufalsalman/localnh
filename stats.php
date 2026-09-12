@@ -6,37 +6,11 @@
 
 $themeCss = getThemeVars();
 
-// Count total archived galleries
-$stmt = $db->query("SELECT COUNT(*) FROM galleries");
-$titlesArchived = number_format((int)$stmt->fetchColumn());
-
-// Get latest activity timestamp
-$latestStmt = $db->query("SELECT MAX(created_at) FROM galleries");
-$latestTimestamp = (int)$latestStmt->fetchColumn();
-
-// Calculate total disk space used by cache and database
-function getDirSize($dir) {
-    if (!is_dir($dir)) return 0;
-    if (function_exists('shell_exec')) {
-        $out = @shell_exec('du -sb ' . escapeshellarg($dir) . ' 2>/dev/null');
-        if ($out) {
-            $parts = explode("\t", trim($out));
-            if (!empty($parts[0]) && is_numeric($parts[0])) {
-                return (int)$parts[0];
-            }
-        }
-    }
-    $size = 0;
-    $iterator = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS)
-    );
-    foreach ($iterator as $file) {
-        if ($file->isFile()) {
-            $size += $file->getSize();
-        }
-    }
-    return $size;
-}
+require_once __DIR__ . '/aggregation.php';
+header('Cache-Control: no-store');
+$summary = localnh_aggregate('stats');
+$titlesArchived = number_format($summary['count']);
+$latestTimestamp = (int)$summary['latest'];
 
 function formatBytes($bytes, $precision = 2) {
     $units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -47,11 +21,7 @@ function formatBytes($bytes, $precision = 2) {
     return round($bytes, $precision) . ' ' . $units[$pow];
 }
 
-$totalBytes = getDirSize(localnh_data_path('cache'));
-$dbFile = localnh_data_path('cache.sqlite');
-if (file_exists($dbFile)) {
-    $totalBytes += filesize($dbFile);
-}
+$totalBytes = $summary['bytes'];
 $spaceUsed = formatBytes($totalBytes);
 ?>
 <!DOCTYPE html>

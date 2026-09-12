@@ -68,3 +68,15 @@ catch (Throwable $e) {
     header('Cache-Control: no-store');
     exit('Storage unavailable. Check the configured data directory and initialization.');
 }
+
+// Cache invalidation is best-effort: it must not turn a committed mutation into
+// an apparent failure. Aggregate TTL remains a fallback if the disk is full.
+function localnh_collection_changed(): void {
+    $tmp = false;
+    try {
+        $tmp = tempnam(localnh_data_path('cache'), '.aggregation-');
+        if ($tmp === false || file_put_contents($tmp, bin2hex(random_bytes(16))) === false
+            || !rename($tmp, localnh_data_path('cache/aggregation.version'))) throw new RuntimeException('Revision unavailable');
+    } catch (Throwable $e) { error_log('Aggregate invalidation unavailable'); }
+    finally { if ($tmp !== false && is_file($tmp)) unlink($tmp); }
+}

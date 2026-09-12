@@ -15,7 +15,7 @@ import sqlite3
 import tarfile
 import tempfile
 
-from storage import data_path, session_dir
+from storage import data_path, session_dir, collection_changed
 
 
 def require_offline(offline):
@@ -221,6 +221,7 @@ def import_snapshot(index_path, *, offline=False):
                 write_recovery_journal(journal, 'recovery-failed', destination, active_images)
                 raise
             raise
+        collection_changed()
         write_recovery_journal(journal, 'complete', destination, active_images)
         print('Snapshot import completed. Recovery data retained at: ' + str(stage))
         return stage

@@ -103,54 +103,8 @@ if ($path === '/thumbnail' || $path === '/thumbnail/') {
     exit;
 // Route: POST /api/favorites — JSON API called by client-side favorites.js to resolve
 // gallery metadata (title, cover) for a batch of locally-stored IDs.
-} elseif ($path === '/api/favorites' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    header('Content-Type: application/json');
-    // $_POST is not populated for application/json requests; read the raw body manually.
-    $rawInput = file_get_contents('php://input');
-    $inputData = json_decode($rawInput, true);
-    $ids = $inputData['ids'] ?? [];
-    
-    // Return an empty object (not an array) so JS can treat it as a keyed map: {}.
-    if (!is_array($ids) || empty($ids)) {
-        echo json_encode(['galleries' => new stdClass()]);
-        exit;
-    }
-    
-    // Sanitise each ID: cast to string and strip whitespace to prevent passing
-    // nulls or nested arrays into the SQL query.
-    $cleanIds = [];
-    foreach ($ids as $id) {
-        $idStr = trim((string)$id);
-        if ($idStr !== '') {
-            $cleanIds[] = $idStr;
-        }
-    }
-    
-    if (empty($cleanIds)) {
-        echo json_encode(['galleries' => new stdClass()]);
-        exit;
-    }
-    
-    // Build a parameterised IN clause: one '?' placeholder per ID to prevent SQL injection.
-    $placeholders = implode(',', array_fill(0, count($cleanIds), '?'));
-    $stmt = $db->prepare("SELECT id, title, title_jp, cover_path FROM galleries WHERE id IN ($placeholders)");
-    $stmt->execute($cleanIds);
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Key results by gallery ID for O(1) lookups on the client side.
-    $results = [];
-    foreach ($rows as $r) {
-        $results[$r['id']] = [
-            'id' => $r['id'],
-            // Prefer the English title; fall back to the Japanese title, then empty string.
-            'title' => $r['title'] ?: $r['title_jp'] ?: '',
-            'cover_path' => '/' . $r['cover_path'],
-            'exists' => true
-        ];
-    }
-    
-    // Cast to stdClass so json_encode produces {} for an empty set, not [].
-    echo json_encode(['galleries' => (object)$results]);
+} elseif ($path === '/api/favorites') {
+    require __DIR__ . '/favorites_api.php';
     exit;
 
 // Route: /g/<id>/<page> — gallery reader at a specific page number.
@@ -181,45 +135,7 @@ if ($path === '/thumbnail' || $path === '/thumbnail/') {
     }
 // Route: GET /api/autocomplete?q=<query> — returns up to 10 matching tag/artist suggestions.
 } elseif ($path === '/api/autocomplete') {
-    header('Content-Type: application/json');
-    $q = strtolower(trim($_GET['q'] ?? ''));
-    // Enforce a 2-character minimum to avoid a full table scan on every keystroke.
-    if (strlen($q) < 2) { echo json_encode([]); exit; }
-    
-    // Full table scan: tags are stored as JSON strings, so a simple LIKE search is used.
-    // For small local archives this is acceptable; a dedicated index table would help at scale.
-    $stmt = $db->query("SELECT language, tags FROM galleries");
-    $allTags = [];
-    $allArtists = [];
-    $allCircles = [];
-    $allParodies = [];
-    $allChars = [];
-    $allLangs = [];
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        // Deduplicate language values collected from the top-level column.
-        if ($row['language'] && !in_array($row['language'], $allLangs)) $allLangs[] = $row['language'];
-        // Decode the JSON tags blob and fan out each category into its own deduplicated array.
-        $t = json_decode($row['tags'], true);
-        if ($t) {
-            if (!empty($t['tags'])) foreach ($t['tags'] as $x) if (!in_array($x, $allTags)) $allTags[] = $x;
-            if (!empty($t['artists'])) foreach ($t['artists'] as $x) if (!in_array($x, $allArtists)) $allArtists[] = $x;
-            if (!empty($t['circles'])) foreach ($t['circles'] as $x) if (!in_array($x, $allCircles)) $allCircles[] = $x;
-            if (!empty($t['parodies'])) foreach ($t['parodies'] as $x) if (!in_array($x, $allParodies)) $allParodies[] = $x;
-            if (!empty($t['characters'])) foreach ($t['characters'] as $x) if (!in_array($x, $allChars)) $allChars[] = $x;
-        }
-    }
-    
-    // Prefix each suggestion with its category so the client can display grouped results.
-    $results = [];
-    foreach ($allTags as $x) if (strpos(strtolower($x), $q) !== false) $results[] = "tag - " . $x;
-    foreach ($allArtists as $x) if (strpos(strtolower($x), $q) !== false) $results[] = "artist - " . $x;
-    foreach ($allCircles as $x) if (strpos(strtolower($x), $q) !== false) $results[] = "circle - " . $x;
-    foreach ($allParodies as $x) if (strpos(strtolower($x), $q) !== false) $results[] = "parody - " . $x;
-    foreach ($allChars as $x) if (strpos(strtolower($x), $q) !== false) $results[] = "character - " . $x;
-    foreach ($allLangs as $x) if (strpos(strtolower($x), $q) !== false) $results[] = "language - " . $x;
-    
-    // Cap at 10 to keep the dropdown manageable.
-    echo json_encode(array_slice($results, 0, 10));
+    require __DIR__ . '/autocomplete.php';
     exit;
 // Static files are public only inside these directories, with known types.
 } elseif ($path !== '/' && $path !== '/index.php') {

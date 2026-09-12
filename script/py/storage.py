@@ -106,6 +106,24 @@ def initialize_empty():
     print('Initialized empty external storage. No legacy data was moved.')
 
 
+def collection_changed():
+    """Best-effort invalidation after commit; aggregate TTL covers failures."""
+    import tempfile, secrets
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', dir=data_path('cache'), prefix='.aggregation-', delete=False) as f:
+            temporary = Path(f.name)
+            f.write(secrets.token_hex(16))
+        os.replace(temporary, data_path('cache/aggregation.version'))
+    except Exception:
+        import sys
+        print('Aggregate invalidation unavailable', file=sys.stderr)
+    finally:
+        if temporary is not None:
+            try: temporary.unlink(missing_ok=True)
+            except OSError: pass
+
+
 if __name__ == '__main__':
     import sys
     if sys.argv[1:] == ['init']:

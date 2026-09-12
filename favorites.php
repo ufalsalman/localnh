@@ -475,21 +475,29 @@ $canArchive = ($publicArchive === 'on' || !empty($isLoggedIn));
             }
 
             favEmpty.classList.add('hidden');
-            const ids = favs.map(f => String(f.id));
+            const ids = [...new Set(favs.map(f => String(f.id)).filter(id => /^[0-9]{1,20}$/.test(id)))];
 
             try {
-                // POST all locally-stored gallery IDs to the server in a single batch request.
-                // The API responds with a map of id → { exists: bool, title, cover_path }.
-                const res = await fetch('/api/favorites', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ids: ids })
-                });
-                const json = await res.json();
-                if (json && json.galleries) {
-                    currentGalleryData = json.galleries;
+                // Keep large local lists usable without one unbounded request.
+                const resolved = {};
+                for (let start = 0; start < ids.length; start += 200) {
+                    const res = await fetch('/api/favorites', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ids: ids.slice(start, start + 200) })
+                    });
+                    if (!res.ok) throw new Error('favorites request failed');
+                    const json = await res.json();
+                    if (!json || !json.galleries) throw new Error('invalid favorites response');
+                    Object.assign(resolved, json.galleries);
                 }
-            } catch (e) {}
+                currentGalleryData = resolved;
+            } catch (e) {
+                // Never classify favorites as orphaned from an incomplete response.
+                favEmpty.textContent = 'favorites could not be loaded. please reload to retry.';
+                favEmpty.classList.remove('hidden');
+                return;
+            }
 
             updateCounts();
 

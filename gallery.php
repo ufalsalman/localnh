@@ -8,6 +8,8 @@ if (!isset($id) || !isset($db)) die('Invalid access');
 // It purges the cached image directory first, then removes the DB row.
 if (($_GET['action'] ?? '') === 'delete' || ($_POST['action'] ?? '') === 'delete') {
     localnh_require_admin_post();
+    require_once __DIR__ . "/archive_jobs.php";
+    $deleteLock = localnh_archive_lock();
     $cache_dir = localnh_data_path('cache/images/' . $id);
     if (is_dir($cache_dir)) {
         // glob() returns all files; @ suppresses errors on unlink for missing/locked files.
@@ -23,91 +25,14 @@ if (($_GET['action'] ?? '') === 'delete' || ($_POST['action'] ?? '') === 'delete
     // Parameterised DELETE to prevent SQL injection.
     $stmt = $db->prepare("DELETE FROM galleries WHERE id = ?");
     $stmt->execute([$id]);
+    localnh_collection_changed();
     
     header("Location: /", true, 303);
     exit;
 }
 
-// --- Download handler ---
-// Triggered by ?download=<format> where <format> is 'zip', 'cbz', or 'pdf'.
-// Generates the archive on the fly and streams it directly to the browser.
-if (isset($_GET['download'])) {
-    $format = $_GET['download'];
-    $stmt = $db->prepare("SELECT * FROM galleries WHERE id = ?");
-    $stmt->execute([$id]);
-    $g = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$g) die("Not found.");
-    
-    $pages = json_decode($g['pages_paths'], true) ?: [];
-    if (empty($pages)) die("No pages.");
-
-    // Sanitise the title for use as a filename: replace any non-alphanumeric/underscore/dash
-    // character with '_' to avoid OS-specific filename restrictions.
-    $title = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $g['title']);
-    
-    if ($format === 'zip' || $format === 'cbz') {
-        // Both ZIP and CBZ use the same ZipArchive container; they differ only in file extension
-        // and MIME type. CBZ is a comic reader convention for ZIP-packed page images.
-        $zip = new ZipArchive();
-        // tempnam() creates a unique temporary file; ZipArchive will overwrite it.
-        $tmp = tempnam(sys_get_temp_dir(), 'arc');
-        if ($zip->open($tmp, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== TRUE) {
-            die("Cannot create zip.");
-        }
-        foreach ($pages as $p) {
-            $path = localnh_image_path($p);
-            if ($path !== false && is_file($path)) {
-                // Store files with just the base name (no subdirectory) for clean extraction.
-                $zip->addFile($path, basename($p));
-            }
-        }
-        $zip->close();
-        
-        // CBZ uses a specialised MIME type recognised by comic reader apps.
-        $ctype = $format === 'cbz' ? 'application/vnd.comicbook+zip' : 'application/zip';
-        header("Content-Type: $ctype");
-        header("Content-Disposition: attachment; filename=\"{$title}.{$format}\"");
-        header("Content-Length: " . filesize($tmp));
-        readfile($tmp);
-        unlink($tmp); // Clean up the temp file after streaming.
-        exit;
-    } elseif ($format === 'pdf') {
-        // PDF generation is delegated to a Python script (script/py/pdf.py) running in a venv.
-        // The script receives the gallery ID and a temp output path, then writes the PDF there.
-        $tmp = tempnam(sys_get_temp_dir(), 'pdf');
-        $cmd = escapeshellarg(__DIR__ . "/venv/bin/python") . " " . escapeshellarg(__DIR__ . "/script/py/pdf.py") . " " . escapeshellarg($id) . " " . escapeshellarg($tmp);
-        exec($cmd, $out, $ret);
-        // $ret === 0 indicates success; check file_exists too in case the script exited cleanly
-        // but failed to write the file (e.g., permission error).
-        if ($ret === 0 && file_exists($tmp)) {
-            header("Content-Type: application/pdf");
-            header("Content-Disposition: attachment; filename=\"{$title}.pdf\"");
-            header("Content-Length: " . filesize($tmp));
-            readfile($tmp);
-            unlink($tmp);
-            exit;
-        } else {
-            die("PDF generation failed.");
-        }
-    } elseif ($format === 'html') {
-        // Standalone offline HTML generation is delegated to script/py/html.py.
-        // It embeds all metadata, thumbnails, and page WebP images as Base64 data URIs.
-        $tmp = tempnam(sys_get_temp_dir(), 'html');
-        $pythonExec = file_exists(__DIR__ . "/venv/bin/python") ? (__DIR__ . "/venv/bin/python") : "python";
-        $cmd = escapeshellarg($pythonExec) . " " . escapeshellarg(__DIR__ . "/script/py/html.py") . " " . escapeshellarg($id) . " " . escapeshellarg($tmp);
-        exec($cmd, $out, $ret);
-        if ($ret === 0 && file_exists($tmp)) {
-            header("Content-Type: text/html; charset=UTF-8");
-            header("Content-Disposition: attachment; filename=\"{$title}.html\"");
-            header("Content-Length: " . filesize($tmp));
-            readfile($tmp);
-            unlink($tmp);
-            exit;
-        } else {
-            die("HTML generation failed.");
-        }
-    }
-}
+// Public exports use bounded jobs; login is not required.
+if (isset($_GET['download'])) { require __DIR__ . '/export.php'; exit; }
 
 // --- Main gallery lookup ---
 $stmt = $db->prepare("SELECT * FROM galleries WHERE id = ?");
@@ -178,9 +103,17 @@ if (!$g) {
         header('Cache-Control: private, no-store');
         $csrfToken = localnh_csrf_token();
         $safeId = htmlspecialchars($id, ENT_QUOTES);
-        echo "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>archive gallery</title><link rel='stylesheet' href='/css/style.css'><style>:root { {$themeCss} }</style></head><body><main class='narrow-page'><h1>archive gallery {$safeId}</h1><p>This gallery is not stored locally. Archive it now?</p><form method='POST' action='/g/{$safeId}'><input type='hidden' name='action' value='archive'><input type='hidden' name='csrf_token' value='{$csrfToken}'><button type='submit'>archive</button></form><p><a href='/'>cancel</a></p></main></body></html>";
+        $safeSite = htmlspecialchars($siteName);
+        echo "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>archive {$safeId} - {$safeSite}</title><link rel='stylesheet' href='/css/style.css'>{$faviconHtml}<style>:root { {$themeCss} }</style></head><body><main class='narrow-page'><div class='topbar'><h1><a href='/'>{$safeSite}</a></h1></div><div class='settings-content'><h2>archive gallery {$safeId}</h2><p class='ui-text'>this gallery is not stored locally. archive it now?</p><form method='POST' action='/g/{$safeId}'><input type='hidden' name='action' value='archive'><input type='hidden' name='csrf_token' value='{$csrfToken}'><div class='action-btn-group archive-confirm-actions'><button type='submit' class='action-btn'>confirm</button><button type='button' class='action-btn archive-cancel' onclick=\"window.location.href='/'\">cancel</button></div></form></div></main></body></html>";
         exit;
     }
+
+    require_once __DIR__ . '/archive_jobs.php';
+    $archiveLock = localnh_archive_lock(true);
+    // Another writer may have finished while this request was preparing its form.
+    $check = $db->prepare('SELECT 1 FROM galleries WHERE id = ?');
+    $check->execute([$id]);
+    if ($check->fetchColumn()) { fclose($archiveLock); header('Location: /g/' . $id, true, 303); exit; }
 
     // Render the fetch UI (cover placeholder, progress indicator) before starting the download.
     // The browser will receive and execute <script> tags injected into the still-open response.
@@ -212,14 +145,14 @@ if (!$g) {
             <p id='progress-text' class='ui-text'>initializing...</p>
             <div class='cancel-btn-group'>
                 <a href='/'><button class='action-btn'>cancel</button></a>
-                <p class='ui-text warning-text'>do not leave or close the page, it might cancels out the download process.</p>
+                <p class='ui-text warning-text'>leaving this page cancels the archive when the connection closes.</p>
             </div>
         </div>
     </div>
     </main>
     <script>
         function updateMeta(title, cover, cover_b64) {
-            document.getElementById('title-text').innerHTML = title;
+            document.getElementById('title-text').textContent = title;
             document.title = 'fetch ' + document.getElementById('title-text').innerText + ' - ' + " . json_encode($siteName) . ";
             if (cover_b64) {
                 // Use the base64-encoded cover sent inline to avoid a separate HTTP request.
@@ -251,110 +184,7 @@ if (!$g) {
         }
     </script>
 ";
-    // Disable PHP's execution time limit — the fetch can take several minutes for large galleries.
-    set_time_limit(0);
-    // Send a padding block to force some proxies and browsers to start rendering the document.
-    echo str_repeat(' ', 8192) . "\n";
-    if (ob_get_level() > 0) ob_flush();
-    flush();
-
-    // ignore_user_abort(true) keeps PHP running even if the browser disconnects,
-    // allowing the cleanup block below to kill the child process and remove partial downloads.
-    ignore_user_abort(true);
-    // Launch fetch.py via proc_open so we can stream its stdout line by line.
-    // stderr is merged into stdout (2>&1) so errors are also captured.
-    $cmd = escapeshellarg(__DIR__ . "/venv/bin/python") . " " . escapeshellarg(__DIR__ . "/script/py/fetch.py") . " " . escapeshellarg($id) . " 2>&1";
-    // Descriptor 1 (stdout) is opened as a readable pipe; stdin/stderr are inherited.
-    $process = proc_open($cmd, [1 => ['pipe', 'w']], $pipes);
-    $finalData = null;
-    
-    if (is_resource($process)) {
-        // Read the child process output one line at a time.
-        // Each line is a JSON object following a simple protocol:
-        //   {"type": "meta",     "title": "...", "cover": "...", "cover_b64": "..."}
-        //   {"type": "progress", "current": N, "total": M}
-        //   {"type": "done",     "data": {...}}
-        //   {"error": "..."}
-        while (!feof($pipes[1])) {
-            $line = fgets($pipes[1]);
-            if ($line !== false) {
-                $line = trim($line);
-                if (empty($line)) continue;
-                $decoded = json_decode($line, true);
-                if ($decoded) {
-                    if (isset($decoded['error'])) {
-                        $err = addslashes($decoded['error']);
-                        echo "<script>showError('$err');</script>\n";
-                        if (ob_get_level() > 0) ob_flush();
-                        flush();
-                        die();
-                    }
-                    if (isset($decoded['type'])) {
-                        if ($decoded['type'] === 'meta') {
-                            // addslashes escapes the string for safe injection into a JS single-quoted literal.
-                            $t = addslashes(htmlspecialchars($decoded['title']));
-                            $c = addslashes($decoded['cover']);
-                            $b64 = isset($decoded['cover_b64']) ? $decoded['cover_b64'] : '';
-                            echo "<script>updateMeta('$t', '$c', '$b64');</script>\n";
-                        } elseif ($decoded['type'] === 'progress') {
-                            $cur = $decoded['current'];
-                            $tot = $decoded['total'];
-                            echo "<script>updateProgress($cur, $tot);</script>\n";
-                        } elseif ($decoded['type'] === 'done') {
-                            // Capture the final data payload for the DB INSERT below.
-                            $finalData = $decoded['data'];
-                            echo "<script>done('$id');</script>\n";
-                        }
-                    }
-                } else {
-                    // Non-JSON line (e.g. a Python traceback) — log it to the browser console.
-                    $err = addslashes($line);
-                    echo "<script>console.error('$err');</script>\n";
-                }
-                // Send another padding block after each line to keep the connection alive
-                // and force the browser to process newly injected <script> tags.
-                echo str_repeat(' ', 8192) . "\n";
-                if (ob_get_level() > 0) ob_flush();
-                flush();
-                
-                // If the user has navigated away, kill the child process and clean up
-                // any partially downloaded images to avoid leaving orphaned cache files.
-                if (connection_aborted()) {
-                    $status = proc_get_status($process);
-                    if ($status['running']) {
-                        exec("kill -9 " . escapeshellarg($status['pid']));
-                    }
-                    fclose($pipes[1]);
-                    proc_close($process);
-                    $cache_dir = localnh_data_path('cache/images/' . $id);
-                    exec("rm -rf " . escapeshellarg($cache_dir));
-                    exit;
-                }
-            }
-        }
-        fclose($pipes[1]);
-        proc_close($process);
-    }
-
-    // Persist the fetched gallery to the local SQLite cache so subsequent page loads
-    // are served from disk without hitting the upstream API again.
-    if ($finalData) {
-        $stmt = $db->prepare("INSERT INTO galleries (id, title, title_jp, language, scanlator, tags, cover_path, pages_paths, page_count, upload_date, created_at, raw_api_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([
-            $id, 
-            $finalData['title'] ?? '', 
-            $finalData['title_jp'] ?? '', 
-            $finalData['language'] ?? '', 
-            $finalData['scanlator'] ?? '', 
-            json_encode($finalData['tags'] ?? []),   // Serialise tag arrays to JSON for storage.
-            $finalData['cover'] ?? '', 
-            json_encode($finalData['pages'] ?? []),  // Serialise page path array to JSON.
-            $finalData['page_count'] ?? 0, 
-            $finalData['upload_date'] ?? 0,
-            time(),                                  // created_at = current Unix timestamp.
-            json_encode($finalData['raw_api_data'] ?? [])
-        ]);
-    }
+    require __DIR__ . '/archive_stream.php';
     echo "</body></html>";
     exit;
 }
