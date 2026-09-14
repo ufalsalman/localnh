@@ -227,6 +227,10 @@ def escape_html(text):
         return ""
     return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&#039;")
 
+def script_json(value):
+    """Encode data for a script element, including hostile closing tags."""
+    return json.dumps(value).replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
+
 def export_gallery(gallery_id, output_path=None):
     if not os.path.exists(DB_PATH):
         print(f"Error: Database not found at {DB_PATH}", file=sys.stderr)
@@ -313,22 +317,24 @@ def export_gallery(gallery_id, output_path=None):
     site_name = get_site_name()
     css_content = get_css_content()
 
-    # Fill template
-    html_content = HTML_TEMPLATE
-    html_content = html_content.replace('__EMBEDDED_CSS__', css_content)
-    html_content = html_content.replace('__TITLE__', escape_html(title))
-    html_content = html_content.replace('__ID__', str(gallery_id))
-    html_content = html_content.replace('__SITENAME__', escape_html(site_name))
-    html_content = html_content.replace('__COVER_DATA__', cover_b64)
-    html_content = html_content.replace('__TAGS_HTML__', tags_html)
-    html_content = html_content.replace('__LANGUAGE__', escape_html(language))
-    html_content = html_content.replace('__PAGE_COUNT__', str(len(pages_b64)))
-    html_content = html_content.replace('__UPLOAD_DATE__', escape_html(upload_date))
-    html_content = html_content.replace('__ARCHIVED_DATE__', escape_html(archived_date))
-    html_content = html_content.replace('__PREVIEW_GRID_HTML__', "\n".join(preview_grid_html_parts))
-    html_content = html_content.replace('__PAGES_DATA_JSON__', json.dumps(pages_b64))
-    html_content = html_content.replace('__GALLERY_TITLE_JSON__', json.dumps(title))
-    html_content = html_content.replace('__SITENAME_JSON__', json.dumps(site_name))
+    # Substitute only original template tokens, never tokens contained in user text.
+    replacements = {
+        '__EMBEDDED_CSS__': css_content,
+        '__TITLE__': escape_html(title),
+        '__ID__': escape_html(gallery_id),
+        '__SITENAME__': escape_html(site_name),
+        '__COVER_DATA__': cover_b64,
+        '__TAGS_HTML__': tags_html,
+        '__LANGUAGE__': escape_html(language),
+        '__PAGE_COUNT__': str(len(pages_b64)),
+        '__UPLOAD_DATE__': escape_html(upload_date),
+        '__ARCHIVED_DATE__': escape_html(archived_date),
+        '__PREVIEW_GRID_HTML__': "\n".join(preview_grid_html_parts),
+        '__PAGES_DATA_JSON__': script_json(pages_b64),
+        '__GALLERY_TITLE_JSON__': script_json(title),
+        '__SITENAME_JSON__': script_json(site_name),
+    }
+    html_content = re.sub(r'__[A-Z_]+__', lambda match: replacements.get(match.group(), match.group()), HTML_TEMPLATE)
 
     if not output_path:
         sanitized_title = sanitize_filename(title)

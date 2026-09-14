@@ -90,9 +90,9 @@ $canArchive = ($publicArchive === 'on' || !empty($isLoggedIn));
 
     <script>
         // PHP-injected variables made available to JavaScript at page load.
-        window.siteName = <?= json_encode($siteName) ?>;
-        window.isOrphanPage = <?= json_encode($isOrphanPage) ?>;
-        window.canArchive = <?= json_encode($canArchive) ?>;
+        window.siteName = <?= localnh_script_json($siteName) ?>;
+        window.isOrphanPage = <?= localnh_script_json($isOrphanPage) ?>;
+        window.canArchive = <?= localnh_script_json($canArchive) ?>;
         // Keys used for localStorage; kept as constants to avoid typos across functions.
         const STORAGE_KEY_USER = 'localnh_user';
         const STORAGE_KEY_FAVS = 'localnh_favorites';
@@ -115,7 +115,8 @@ $canArchive = ($publicArchive === 'on' || !empty($isLoggedIn));
         function escapeHtml(str) {
             const div = document.createElement('div');
             div.textContent = str || '';
-            return div.innerHTML;
+            // textContent escapes markup, but quotes must also be escaped for attributes.
+            return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
         function getStoredFavorites() {
@@ -125,7 +126,7 @@ $canArchive = ($publicArchive === 'on' || !empty($isLoggedIn));
                 const parsed = JSON.parse(raw);
                 if (Array.isArray(parsed)) {
                     // Current format: array of objects with id, title, tags, added_at, cum_count, etc.
-                    return parsed.map(f => ({
+                    return parsed.filter(f => f && typeof f === 'object' && /^[0-9]{1,20}$/.test(String(f.id))).map(f => ({
                         id: String(f.id),
                         title: f.title || '',
                         tags: Array.isArray(f.tags) ? f.tags : [],
@@ -141,9 +142,9 @@ $canArchive = ($publicArchive === 'on' || !empty($isLoggedIn));
                 if (typeof parsed === 'object' && parsed !== null) {
                     // Legacy format: plain object keyed by gallery ID, value was either a string
                     // (the title) or an object. Migrate on-the-fly to the canonical array format.
-                    return Object.keys(parsed).map(id => ({
+                    return Object.keys(parsed).filter(id => /^[0-9]{1,20}$/.test(id)).map(id => ({
                         id: String(id),
-                        title: typeof parsed[id] === 'string' ? parsed[id] : (parsed[id].title || ''),
+                        title: typeof parsed[id] === 'string' ? parsed[id] : (parsed[id]?.title || ''),
                         tags: (parsed[id] && Array.isArray(parsed[id].tags)) ? parsed[id].tags : [],
                         artists: (parsed[id] && Array.isArray(parsed[id].artists)) ? parsed[id].artists : [],
                         circles: (parsed[id] && Array.isArray(parsed[id].circles)) ? parsed[id].circles : [],

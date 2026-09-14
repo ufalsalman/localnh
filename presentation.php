@@ -121,3 +121,9 @@ function getDominantColor($filePath, $isDarkMode = true) {
     }
     return 'hsl(' . round($h * 360) . ', ' . round($targetS * 100) . '%, ' . round($targetL * 100) . '%)';
 }
+
+// JSON embedded in a script element must not contain HTML parser delimiters.
+// Invalid UTF-8 is substituted so one malformed display value cannot break the script.
+function localnh_script_json($value): string {
+    return json_encode($value, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+}

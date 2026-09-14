@@ -19,7 +19,7 @@ $pages = json_decode($g['pages_paths'], true) ?: [];
 foreach ($pages as &$p) {
     $p = '/' . $p;
 }
-$pagesJson = json_encode($pages);
+$pagesJson = localnh_script_json($pages);
 $title = htmlspecialchars($g['title']);
 
 // Open Graph metadata for rich link previews (Discord, Telegram, Twitter)
@@ -27,7 +27,7 @@ $cover = htmlspecialchars('/' . $g['cover_path']);
 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
 $host = $_SERVER['HTTP_HOST'];
 $ogUrl = "{$protocol}://{$host}/g/{$id}/" . (isset($pageParam) ? $pageParam : 1);
-$ogImage = "{$protocol}://{$host}{$cover}";
+$ogImage = "{$protocol}://{$host}/" . $g['cover_path'];
 
 $titleHtml = htmlspecialchars($g['title']);
 
@@ -43,8 +43,8 @@ $themeCss = getThemeVars();
     <title><?= $title ?> - page <?= isset($pageParam) ? $pageParam : 1 ?> - <?= htmlspecialchars($siteName) ?></title>
     <meta property="og:title" content="<?= $title ?>">
     <meta property="og:type" content="website">
-    <meta property="og:image" content="<?= $ogImage ?>">
-    <meta property="og:url" content="<?= $ogUrl ?>">
+    <meta property="og:image" content="<?= htmlspecialchars($ogImage, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
+    <meta property="og:url" content="<?= htmlspecialchars($ogUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
     <meta name="twitter:card" content="summary_large_image">
     <link rel='stylesheet' href='/css/style.css?v=1787039554'>
     <?= $faviconHtml ?>
@@ -79,9 +79,9 @@ $themeCss = getThemeVars();
         window.pages = <?= $pagesJson ?>;
         window.galleryId = '<?= $id ?>';
         window.initialPage = <?= isset($pageParam) ? $pageParam : 1 ?>;
-        window.galleryTitle = <?= json_encode($title) ?>;
-        window.siteName = <?= json_encode($siteName) ?>;
-        window.pageOrder = <?= json_encode($flipPageOrder) ?>;
+        window.galleryTitle = <?= localnh_script_json($g['title']) ?>;
+        window.siteName = <?= localnh_script_json($siteName) ?>;
+        window.pageOrder = <?= localnh_script_json($flipPageOrder) ?>;
     </script>
     <script src="/script/js/reader.js?v=<?= file_exists(__DIR__ . '/script/js/reader.js') ? filemtime(__DIR__ . '/script/js/reader.js') : time() ?>"></script>
     </main>

@@ -63,7 +63,7 @@ $faviconHtml = getFaviconHtml();
     </main>
 
     <script>
-        window.siteName = <?= json_encode($siteName) ?>;
+        window.siteName = <?= localnh_script_json($siteName) ?>;
         // localStorage keys shared across all pages; must stay in sync with favorites.php.
         const STORAGE_KEY_USER = 'localnh_user';
         const STORAGE_KEY_FAVS = 'localnh_favorites';

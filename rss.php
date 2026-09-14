@@ -68,7 +68,7 @@ foreach ($galleries as $g) {
     $desc .= "<p><b>uploaded:</b> {$upDateStr}</p>\n";
     $desc .= "<p><b>archived:</b> {$arDateStr}</p>\n";
     
-    $desc .= "<p><a href=\"{$baseUrl}/g/{$id}/1\">read</a> | <a href=\"https://nhentai.net/g/{$id}/\">nhentai</a></p>\n";
+    $desc .= "<p><a href=\"" . htmlspecialchars($baseUrl . '/g/' . rawurlencode($id) . '/1', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . "\">read</a> | <a href=\"https://nhentai.net/g/" . rawurlencode($id) . "/\">nhentai</a></p>\n";
     
     echo "<item>\n";
     echo "<title>" . htmlspecialchars($title . " - " . $siteName) . "</title>\n";

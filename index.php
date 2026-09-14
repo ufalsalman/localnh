@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . "/request_validation.php";
+localnh_validate_request_inputs();
 require_once __DIR__ . "/storage.php";
 // Open the collection database in the selected legacy or external data root.
 // PDO is used for its unified API and prepared-statement support across DB drivers.

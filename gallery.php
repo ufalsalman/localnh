@@ -153,7 +153,7 @@ if (!$g) {
     <script>
         function updateMeta(title, cover, cover_b64) {
             document.getElementById('title-text').textContent = title;
-            document.title = 'fetch ' + document.getElementById('title-text').innerText + ' - ' + " . json_encode($siteName) . ";
+            document.title = 'fetch ' + document.getElementById('title-text').innerText + ' - ' + " . localnh_script_json($siteName) . ";
             if (cover_b64) {
                 // Use the base64-encoded cover sent inline to avoid a separate HTTP request.
                 document.getElementById('cover-img').src = 'data:image/webp;base64,' + cover_b64;
@@ -175,7 +175,7 @@ if (!$g) {
                         <p class='ui-text'>the thing you are looking for is not found. you will be redirected to the homepage soon.</p>
                     </div>
                 `;
-                document.title = 'title not found - ' + " . json_encode($siteName) . ";
+                document.title = 'title not found - ' + " . localnh_script_json($siteName) . ";
                 setTimeout(() => { window.location.href = '/'; }, 5000);
             } else {
                 document.getElementById('progress-text').innerText = 'error: ' + msg;
@@ -234,12 +234,12 @@ $pages = json_decode($g['pages_paths'], true) ?: [];
 foreach ($pages as &$p) {
     $p = '/' . $p;
 }
-$pagesJson = json_encode($pages);
+$pagesJson = localnh_script_json($pages);
 
 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
 $host = $_SERVER['HTTP_HOST'];
 $ogUrl = "{$protocol}://{$host}/g/{$id}";
-$ogImage = "{$protocol}://{$host}{$cover}";
+$ogImage = "{$protocol}://{$host}/" . $g['cover_path'];
 
 if (isset($isDownloadPage) && $isDownloadPage) {
 ?>
@@ -250,8 +250,8 @@ if (isset($isDownloadPage) && $isDownloadPage) {
     <title>download <?= $title ?> - <?= htmlspecialchars($siteName) ?></title>
     <meta property="og:title" content="<?= $title ?>">
     <meta property="og:type" content="website">
-    <meta property="og:image" content="<?= $ogImage ?>">
-    <meta property="og:url" content="<?= $ogUrl ?>">
+    <meta property="og:image" content="<?= htmlspecialchars($ogImage, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
+    <meta property="og:url" content="<?= htmlspecialchars($ogUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
     <meta name="twitter:card" content="summary_large_image">
     <link rel='stylesheet' href='/css/style.css?v=3'>
     <?= $faviconHtml ?>
@@ -304,8 +304,8 @@ if (isset($isDownloadPage) && $isDownloadPage) {
     <title><?= $title ?> - <?= htmlspecialchars($siteName) ?></title>
     <meta property="og:title" content="<?= $title ?>">
     <meta property="og:type" content="website">
-    <meta property="og:image" content="<?= $ogImage ?>">
-    <meta property="og:url" content="<?= $ogUrl ?>">
+    <meta property="og:image" content="<?= htmlspecialchars($ogImage, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
+    <meta property="og:url" content="<?= htmlspecialchars($ogUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
     <meta name="twitter:card" content="summary_large_image">
     <link rel='stylesheet' href='/css/style.css?v=3'>
     <?= $faviconHtml ?>
@@ -476,8 +476,8 @@ $relatedGalleries = array_slice($scored, 0, 6);
     <script>
         window.allPages = <?= $pagesJson ?>;
         window.galleryId = '<?= $id ?>';
-        window.galleryTitle = <?= json_encode($g['title'] ?: $g['title_jp'] ?: '') ?>;
-        window.galleryTaxonomy = <?= json_encode([
+        window.galleryTitle = <?= localnh_script_json($g['title'] ?: $g['title_jp'] ?: '') ?>;
+        window.galleryTaxonomy = <?= localnh_script_json([
             'tags' => $tagsData['tags'] ?? [],
             'artists' => $tagsData['artists'] ?? [],
             'circles' => $tagsData['circles'] ?? [],
