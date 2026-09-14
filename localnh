@@ -19,22 +19,22 @@ fi
 # Subcommand dispatching
 if [ "$1" = "delete" ] || [ "$1" = "--delete" ] || [ "$1" = "-d" ]; then
     shift
-    "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/delete.py" "$@"
+    exec "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/delete.py" "$@"
 elif [ "$1" = "pdf" ] || [ "$1" = "--pdf" ]; then
     shift
-    "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/pdf.py" "$@"
+    exec "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/pdf.py" "$@"
 elif [ "$1" = "html" ] || [ "$1" = "--html" ]; then
     shift
-    "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/html.py" "$@"
+    exec "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/html.py" "$@"
 elif [ "$1" = "snapshot" ]; then
     shift
-    "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/snapshot.py" "$@"
+    exec "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/snapshot.py" "$@"
 elif [ "$1" = "storage" ]; then
     shift
-    "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/storage.py" "$@"
+    exec "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/storage.py" "$@"
 elif [ "$1" = "stats" ] || [ "$1" = "--stats" ] || [ "$1" = "-s" ]; then
     shift
-    "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/stats.py" "$@"
+    exec "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/stats.py" "$@"
 elif [ -z "$1" ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "localnh CLI Tool"
     echo "Usage:"
@@ -51,7 +51,7 @@ elif [ -z "$1" ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     exit 1
 elif [ "$1" = "fetch" ]; then
     shift
-    "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/fetch.py" "$@"
+    exec "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/fetch.py" "$@"
 else
-    "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/fetch.py" "$@"
+    exec "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/fetch.py" "$@"
 fi

@@ -42,11 +42,28 @@ function localnh_job_run(array $command, string $output, bool $thumbnail = false
     // Supervisor retains the same flock descriptions if PHP is killed mid-job.
     // A new request cannot reuse its workspace until the child group is reaped.
     foreach ($locks as $i => $lock) $descriptors[3 + $i] = $lock;
+    $spec['lock_fds'] = array_map(fn($i) => 3 + $i, array_keys($locks));
+    // Encode before spawning so serialization failure cannot strand a child.
+    $payload = json_encode($spec, JSON_THROW_ON_ERROR);
     $process = proc_open(['/usr/bin/python3', __DIR__ . '/script/py/resource_worker.py'], $descriptors, $pipes);
     if (!is_resource($process)) return false;
-    fwrite($pipes[0], json_encode($spec, JSON_THROW_ON_ERROR));
-    fclose($pipes[0]);
-    $code = proc_close($process);
+    $code = -1;
+    try {
+        $offset = 0;
+        while ($offset < strlen($payload)) {
+            $written = fwrite($pipes[0], substr($payload, $offset));
+            if ($written === false || $written === 0) throw new RuntimeException('Job input pipe closed');
+            $offset += $written;
+        }
+        fclose($pipes[0]);
+        $code = proc_close($process);
+    } finally {
+        if (is_resource($pipes[0])) fclose($pipes[0]);
+        if (is_resource($process)) {
+            proc_terminate($process);
+            proc_close($process);
+        }
+    }
     clearstatcache(true, $output);
     return $code === 0 && is_file($output) && filesize($output) > 0 && filesize($output) <= $spec['bytes'];
 }
