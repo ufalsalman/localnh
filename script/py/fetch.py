@@ -8,6 +8,8 @@ import shutil
 import sqlite3
 from pathlib import Path
 from archive_runner import acquire, defer_upstream
+from crawler_validation import metadata as validate_metadata, request_url
+from urllib.parse import urljoin
 
 MAX_IMAGE = 32 * 1024 * 1024
 MAX_TOTAL = 512 * 1024 * 1024
@@ -16,19 +18,30 @@ class DownloadBudget:
     def __init__(self): self.used = 0
     def get(self, session, url, *, metadata=False, **kwargs):
         cap = 2 * 1024 * 1024 if metadata else MAX_IMAGE
-        response = session.get(url, stream=True, **kwargs)
-        body = bytearray()
-        try:
-            if response.status_code == 429:
-                retry = defer_upstream(response.headers.get('Retry-After'))
-                raise ValueError(f'upstream is limiting archive requests (http 429). retry in {retry} seconds.')
-            for chunk in response.iter_content(chunk_size=65536):
-                self.used += len(chunk)
-                if len(body) + len(chunk) > cap or self.used > MAX_TOTAL:
-                    raise ValueError("Archive download byte limit exceeded")
-                body.extend(chunk)
-            return response.status_code, bytes(body)
-        finally: response.close()
+        host = request_url(url)
+        for hop in range(4):
+            # Check each hop before sending; credentials never follow another origin.
+            request_url(url, host)
+            response = session.get(url, stream=True, allow_redirects=False, **kwargs)
+            try:
+                if response.status_code == 429:
+                    retry = defer_upstream(response.headers.get('Retry-After'))
+                    raise ValueError(f'upstream is limiting archive requests (http 429). retry in {retry} seconds.')
+                if response.status_code in (301,302,303,307,308):
+                    location = response.headers.get('Location')
+                    if hop == 3 or not location or len(location) > 8192 or any(c.isspace() or ord(c)<32 for c in location):
+                        raise ValueError('Invalid or excessive upstream redirect')
+                    url = urljoin(url, location)
+                    request_url(url, host)
+                    continue
+                body = bytearray()
+                for chunk in response.iter_content(chunk_size=65536):
+                    self.used += len(chunk)
+                    if len(body) + len(chunk) > cap or self.used > MAX_TOTAL:
+                        raise ValueError("Archive download byte limit exceeded")
+                    body.extend(chunk)
+                return response.status_code, bytes(body)
+            finally: response.close()
 
 # curl_cffi provides browser-impersonation capabilities via libcurl; required
 # to bypass TLS fingerprint checks that block standard Python HTTP clients.
@@ -76,9 +89,8 @@ HEADERS = {
 }
 
 def out(obj):
-    # All inter-process communication happens via stdout as newline-delimited
-    # JSON objects. The flush is mandatory: without it, the Node.js parent
-    # process won't receive data until the Python process exits (buffering).
+    # Archive progress uses newline-delimited JSON for the PHP/CLI caller.
+    # Flush each event so progress is visible before the worker exits.
     if "error" in obj and isinstance(obj["error"], str): obj["error"] = obj["error"].lower()
     print(json.dumps(obj))
     sys.stdout.flush()
@@ -97,6 +109,7 @@ def fetch_data(code):
 
     api_url = f"https://nhentai.net/api/v2/galleries/{code}"
 
+    s = None
     try:
         # Use a persistent curl_cffi Session so TLS and HTTP/2 state is reused
         # across the multiple requests made for cover + every page image.
@@ -111,6 +124,7 @@ def fetch_data(code):
             return False
 
         data = json.loads(body)
+        pages = validate_metadata(data, code)
         title_data = data.get("title", {})
         # Prefer the English title; fall back to the "pretty" (romanised)
         # title if English is absent.
@@ -177,16 +191,6 @@ def fetch_data(code):
                                 img = img.convert("RGB")
                             img.save(local_cover_path, "WEBP", quality=85)
 
-        # The v2 API returns pages directly; fall back to building page paths
-        # from the legacy images.pages list when the v2 field is absent.
-        pages = data.get("pages", [])
-        if not pages and "images" in data:
-            pages_raw = data["images"].get("pages", [])
-            ext_map = {'j': 'jpg', 'p': 'png', 'w': 'webp', 'g': 'gif'}
-            # Construct path objects in the same shape as the v2 "pages" list
-            # so the download loop below works identically for both API shapes.
-            pages = [{"path": f"galleries/{data['media_id']}/{i+1}.{ext_map.get(p.get('t', 'j'), 'jpg')}"} for i, p in enumerate(pages_raw)]
-
         import base64
         cover_b64 = ""
         if os.path.exists(local_cover_path) and os.path.getsize(local_cover_path) <= 262144:
@@ -214,12 +218,6 @@ def fetch_data(code):
             page_path_api = page.get("path")
             if not page_path_api: raise ValueError("Page path missing")
 
-            # Strip query-string suffixes that may appear on CDN-signed URLs
-            # before using the extension to determine the local filename.
-            ext = page_path_api.split(".")[-1]
-            if "?" in ext:
-                ext = ext.split("?")[0]
-
             # All downloaded pages are converted to WebP and stored by 1-based
             # page number, regardless of their original format.
             local_page_path = str(Path(cache_dir) / f"{i+1}.webp")
@@ -236,8 +234,7 @@ def fetch_data(code):
                                 img = img.convert("RGB")
                             img.save(local_page_path, "WEBP", quality=85)
                     except Exception as e:
-                        # Log conversion failures to stderr; don't abort — the
-                        # page will simply be missing from the local cache.
+                        # Fail before publication; no incomplete gallery is committed.
                         raise ValueError("Page conversion failed") from e
                 else:
                     raise ValueError(f"Page download failed: HTTP {p_status}")
@@ -322,9 +319,16 @@ def fetch_data(code):
         # when it sees this type.
         out({"type": "done", "data": {"id": code}} if os.environ.get("LOCALNH_ARCHIVE_WEB") == "1" else final_data)
         return True
-    except Exception as e:
-        out({"error": str(e)})
+    except (ValueError, requests.errors.RequestsError) as e:
+        # Transport errors may include signed URLs or proxy details; never echo them.
+        message = str(e) if isinstance(e, ValueError) and not isinstance(e, (json.JSONDecodeError, requests.errors.RequestsError)) else "upstream request or metadata decoding failed."
+        out({"error": message})
         return False
+    except Exception:
+        out({"error": "archive failed while processing upstream data."})
+        return False
+    finally:
+        if s is not None: s.close()
 
 if __name__ == "__main__":
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
