@@ -4,6 +4,13 @@ from PIL import Image
 import sqlite3
 import json
 
+from collection_reads import acquire_read_guard
+# This script is a standalone worker; the OS releases its descriptor on exit.
+try: images_lock = acquire_read_guard()
+except BlockingIOError:
+    print('Collection images are in use. Retry shortly.', file=sys.stderr)
+    sys.exit(75)
+
 try:
     # argv[1]: gallery numeric ID  argv[2]: absolute output path for the PDF.
     id = sys.argv[1]

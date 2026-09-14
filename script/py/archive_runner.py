@@ -50,7 +50,7 @@ def run(code, fix=False, inherited=None):
     try:
         fd = acquire(inherited)
     except BlockingIOError:
-        emit_error('Another archive or deletion is active. Retry shortly.'); return 75
+        emit_error('An archive, deletion or snapshot is active. Retry shortly.'); return 75
     stage = data_path('cache') / '.archive-work'
     child = None
     def terminate(*_): raise SystemExit(143)

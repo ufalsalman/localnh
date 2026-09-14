@@ -231,6 +231,9 @@ def script_json(value):
     """Encode data for a script element, including hostile closing tags."""
     return json.dumps(value).replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
 
+from collection_reads import collection_reader
+
+@collection_reader
 def export_gallery(gallery_id, output_path=None):
     if not os.path.exists(DB_PATH):
         print(f"Error: Database not found at {DB_PATH}", file=sys.stderr)
@@ -358,4 +361,7 @@ if __name__ == '__main__':
 
     target_id = sys.argv[1].strip()
     out_file = sys.argv[2].strip() if len(sys.argv) > 2 else None
-    export_gallery(target_id, out_file)
+    try: export_gallery(target_id, out_file)
+    except BlockingIOError:
+        print("Collection images are in use. Retry shortly.", file=sys.stderr)
+        sys.exit(75)

@@ -39,6 +39,9 @@ if (
 $page = (int)$pageRaw;
 $width = (int)$widthRaw;
 
+require_once __DIR__ . '/collection_reads.php';
+$imagesLock = localnh_collection_read_guard();
+
 // Filesystem paths always come from SQLite, never from request parameters.
 $stmt = $db->prepare('SELECT cover_path, pages_paths FROM galleries WHERE id = :id LIMIT 1');
 $stmt->execute([':id' => $galleryId]);
@@ -144,7 +147,7 @@ try {
             if (is_link($tmp)) throw new RuntimeException('Linked thumbnail workspace');
             if (is_file($tmp)) unlink($tmp);
             ignore_user_abort(true); set_time_limit(0);
-            if (!localnh_job_run($command, $tmp, true, $sourcePath, [$slot, $keyLock])) throw new RuntimeException('Thumbnail conversion exceeded limits or failed');
+            if (!localnh_job_run($command, $tmp, true, $sourcePath, [$slot, $keyLock, $imagesLock])) throw new RuntimeException('Thumbnail conversion exceeded limits or failed');
             if (hash_file('sha256', $sourcePath) !== $fingerprint) throw new RuntimeException('Source changed during conversion');
             $metadata = localnh_job_lock('cache');
             if (!$metadata) throw new RuntimeException('Cache publication busy');

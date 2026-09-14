@@ -7,7 +7,7 @@ function localnh_archive_lock(bool $checkUpstream = false) {
     if (!$lock) localnh_job_error(503, 'archive storage unavailable.');
     if (!flock($lock, LOCK_EX | LOCK_NB)) {
         fclose($lock);
-        localnh_job_error(503, 'an archive or deletion is active. retry shortly.');
+        localnh_job_error(503, 'an archive, deletion or snapshot is active. retry shortly.');
     }
     if ($checkUpstream) {
         $retryPath = localnh_data_path('cache/archive-retry.json');

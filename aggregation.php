@@ -32,9 +32,11 @@ function localnh_aggregate(string $kind): array {
         if (!$lock) localnh_job_error(503, 'collection summary is being refreshed. please retry.');
         $data = $load();
         if ($data !== null) return $data;
+        require_once __DIR__ . '/collection_reads.php';
+        $imagesLock = localnh_collection_read_guard();
         $tmp = "$root/aggregate-$kind.part";
         if (is_link($tmp)) throw new RuntimeException('Linked aggregate workspace');
-        if (!localnh_job_run([__DIR__ . '/venv/bin/python', __DIR__ . '/script/py/aggregate.py', $kind], $tmp, true, null, [$lock])) throw new RuntimeException('Aggregate builder failed or exceeded limits');
+        if (!localnh_job_run([__DIR__ . '/venv/bin/python', __DIR__ . '/script/py/aggregate.py', $kind], $tmp, true, null, [$lock, $imagesLock])) throw new RuntimeException('Aggregate builder failed or exceeded limits');
         $data = json_decode(file_get_contents($tmp), true, 32, JSON_THROW_ON_ERROR);
         if (!is_array($data) || localnh_aggregation_key() !== $key) throw new RuntimeException('Collection changed during aggregation');
         $entry = json_encode(['key' => $key, 'expires' => time() + 15, 'data' => $data], JSON_THROW_ON_ERROR);
@@ -47,6 +49,7 @@ function localnh_aggregate(string $kind): array {
     } finally {
         if ($tmp !== null && is_file($tmp)) unlink($tmp);
         if (is_resource($lock)) fclose($lock);
+        if (isset($imagesLock) && is_resource($imagesLock)) fclose($imagesLock);
     }
     localnh_job_error(503, 'collection summary unavailable. please retry.');
 }

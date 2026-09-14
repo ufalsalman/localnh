@@ -4,10 +4,12 @@ import os
 import sqlite3
 import shutil
 from archive_runner import acquire
+from collection_reads import acquire_read_guard
 try:
     archive_lock = acquire()
+    image_lock = acquire_read_guard(exclusive=True)
 except BlockingIOError:
-    print("An archive or deletion is active. Retry shortly.", file=sys.stderr)
+    print("A collection operation is active. Retry shortly.", file=sys.stderr)
     sys.exit(75)
 
 if len(sys.argv) < 2:

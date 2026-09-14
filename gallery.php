@@ -10,6 +10,8 @@ if (($_GET['action'] ?? '') === 'delete' || ($_POST['action'] ?? '') === 'delete
     localnh_require_admin_post();
     require_once __DIR__ . "/archive_jobs.php";
     $deleteLock = localnh_archive_lock();
+    require_once __DIR__ . "/collection_reads.php";
+    $deleteImagesLock = localnh_collection_read_guard(true);
     $cache_dir = localnh_data_path('cache/images/' . $id);
     if (is_dir($cache_dir)) {
         // glob() returns all files; @ suppresses errors on unlink for missing/locked files.

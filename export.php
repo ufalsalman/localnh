@@ -8,6 +8,8 @@ if (!in_array($method, ['GET', 'HEAD'], true)) {
 $format = $_GET['download'];
 $types = ['zip' => 'application/zip', 'cbz' => 'application/vnd.comicbook+zip', 'pdf' => 'application/pdf', 'html' => 'text/html; charset=UTF-8'];
 if (!is_string($format) || !isset($types[$format])) localnh_job_error(400, 'Unsupported export format.');
+require_once __DIR__ . '/collection_reads.php';
+$imagesLock = localnh_collection_read_guard();
 $stmt = $db->prepare('SELECT title, pages_paths FROM galleries WHERE id = ?');
 $stmt->execute([$id]); $g = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$g) localnh_job_error(404, 'Gallery not found.');
@@ -31,7 +33,7 @@ try {
     ignore_user_abort(true);
     set_time_limit(0); // The child supervisor enforces the wall deadline.
     $script = in_array($format, ['zip', 'cbz'], true) ? 'web_export.py' : "$format.py";
-    $success = localnh_job_run([__DIR__ . '/venv/bin/python', __DIR__ . '/script/py/' . $script, $id, $tmp], $tmp, false, null, [$lock]);
+    $success = localnh_job_run([__DIR__ . '/venv/bin/python', __DIR__ . '/script/py/' . $script, $id, $tmp], $tmp, false, null, [$lock, $imagesLock]);
     if ($success) {
         header('Content-Type: ' . $types[$format]);
         header("Content-Disposition: attachment; filename=\"$title.$format\"");

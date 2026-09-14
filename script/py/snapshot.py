@@ -1,6 +1,7 @@
 """Portable collection snapshots. Callers must stop web/CLI writers first.
 
---offline is an explicit operator assertion, not an automatic service stop/lock.
+--offline remains an operator assertion, not an automatic service stop.
+A shared writer lock also excludes archive/delete and other snapshot operations.
 No secrets, sessions, or absolute storage paths are included in exported bundles.
 """
 import argparse
@@ -14,6 +15,9 @@ import shutil
 import sqlite3
 import tarfile
 import tempfile
+import functools
+from archive_runner import acquire
+from collection_reads import acquire_read_guard
 
 from storage import data_path, session_dir, collection_changed
 
@@ -21,6 +25,27 @@ from storage import data_path, session_dir, collection_changed
 def require_offline(offline):
     if not offline:
         raise ValueError('Stop all web/CLI writers, then pass --offline; live snapshots are not supported')
+
+
+def snapshot_operation(function):
+    """Hold the existing collection writer lock across the entire snapshot.
+
+    Lock lives in cache/, outside images replaced by import. Readers and tools
+    outside this protocol still require the documented offline procedure.
+    """
+    @functools.wraps(function)
+    def locked(*args, offline=False, **kwargs):
+        require_offline(offline)
+        fd = acquire()
+        read_fd = None
+        try:
+            if function.__name__ == "import_snapshot":
+                read_fd = acquire_read_guard(exclusive=True)
+            return function(*args, offline=offline, **kwargs)
+        finally:
+            if read_fd is not None: os.close(read_fd)
+            os.close(fd)
+    return locked
 
 
 def sqlite_backup(source, destination):
@@ -58,6 +83,7 @@ class SplitWriter(io.RawIOBase):
         super().close()
 
 
+@snapshot_operation
 def export_snapshot(*, offline=False):
     require_offline(offline)
     domain_path = data_path('config/domain')
@@ -127,6 +153,7 @@ def write_recovery_journal(path, phase, database, images):
     temporary.replace(path)
 
 
+@snapshot_operation
 def import_snapshot(index_path, *, offline=False):
     require_offline(offline)
     manifest = Path(index_path)
@@ -237,9 +264,14 @@ if __name__ == '__main__':
     parser.add_argument('index', nargs='?')
     parser.add_argument('--offline', action='store_true', help='Confirm all web/CLI writers have been stopped')
     args = parser.parse_args()
-    if args.action == 'export':
-        export_snapshot(offline=args.offline)
-    elif args.index:
-        import_snapshot(args.index, offline=args.offline)
-    else:
-        parser.error('import requires the manifest path')
+    try:
+        if args.action == 'export':
+            export_snapshot(offline=args.offline)
+        elif args.index:
+            import_snapshot(args.index, offline=args.offline)
+        else:
+            parser.error('import requires the manifest path')
+    except BlockingIOError:
+        import sys
+        print('A collection operation is active. Retry shortly.', file=sys.stderr)
+        sys.exit(75)
