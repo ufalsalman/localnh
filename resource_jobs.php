@@ -35,7 +35,7 @@ function localnh_job_lock(string $name, int $slots = 1) {
 // File descriptors avoid pipe backpressure and unbounded PHP output buffers.
 function localnh_job_run(array $command, string $output, bool $thumbnail = false, ?string $input = null, array $locks = []): bool {
     $spec = ['command' => $command, 'seconds' => $thumbnail ? 15 : 120,
-        'memory' => $thumbnail ? 268435456 : 805306368,
+        'memory' => $thumbnail ? 536870912 : 805306368,
         'bytes' => $thumbnail ? 8388608 : 536870912,
         'output' => $thumbnail ? $output : null, 'input' => $input];
     $descriptors = [0 => ['pipe', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']];

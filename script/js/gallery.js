@@ -12,7 +12,7 @@ const CHUNK_SIZE = 30;
 // Keep thumbnail requests below the PHP-FPM worker limit. Native lazy-loading is
 // intentionally avoided because images without an intrinsic height can leave the
 // whole grid collapsed and never enter the browser's lazy-load area.
-const MAX_CONCURRENT_THUMBNAILS = 4;
+const MAX_CONCURRENT_THUMBNAILS = 1;
 const THUMBNAIL_RETRY_DELAYS = [600, 1500];
 const thumbnailQueue = [];
 let activeThumbnailLoads = 0;

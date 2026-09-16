@@ -488,7 +488,7 @@ $relatedGalleries = array_slice($scored, 0, 6);
             'language' => $g['language'] ?? ''
         ]) ?>;
     </script>
-    <script src="/script/js/gallery.js?v=4"></script>
+    <script src="/script/js/gallery.js?v=5"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const input = document.getElementById('search-input');
