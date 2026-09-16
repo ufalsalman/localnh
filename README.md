@@ -243,7 +243,7 @@ Login, browser preference toggles, and archiving also require POST and CSRF chec
 - **Python Libraries**:
   - [`curl_cffi`](https://github.com/lexiforest/curl_cffi) - Browser TLS fingerprinting & DoH client.
   - [`Pillow`](https://python-pillow.org) - Image processing & PDF generation.
-- **Development & AI Disclosure**: Developed with the assistance of **Antigravity CLI** powered by **Gemini 3.1 Pro** and **Gemini 3.7 Flash** models.
+- **Development & AI Disclosure**: Developed with the assistance of **Antigravity CLI** powered by **Gemini 3.1 Pro** and **Gemini 3.7 Flash** models. Subsequent code review, security fixes, and maintenance were assisted by **ChatGPT Desktop** using **GPT-5.6 Sol** and **GPT-6 Astra**.
 
 ---
 
