@@ -38,16 +38,16 @@ elif [ "$1" = "stats" ] || [ "$1" = "--stats" ] || [ "$1" = "-s" ]; then
 elif [ -z "$1" ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "localnh CLI Tool"
     echo "Usage:"
-    echo "  ./localnh <gallery_id>             Fetch a gallery by ID"
-    echo "  ./localnh storage paths           Show selected paths (no secrets)"
-    echo "  ./localnh storage init            Explicitly initialize empty external storage"
-    echo "  ./localnh stats                    Display library statistics"
-    echo "  ./localnh delete <id>              Delete gallery entry and cached images"
-    echo "  ./localnh delete purge             Delete all galleries and cache"
-    echo "  ./localnh pdf <id> <out_path>      Export gallery to PDF"
-    echo "  ./localnh html <id> <out_path>     Export gallery to HTML"
-    echo "  ./localnh snapshot export --offline Export DB/cache with writers stopped"
-    echo "  ./localnh snapshot import <path> --offline Import with writers stopped"
+    printf "  %-44s %s\n" "./localnh <gallery_id>" "Fetch a gallery by ID"
+    printf "  %-44s %s\n" "./localnh storage paths" "Show selected paths (no secrets)"
+    printf "  %-44s %s\n" "./localnh storage init" "Explicitly initialize empty external storage"
+    printf "  %-44s %s\n" "./localnh stats" "Display library statistics"
+    printf "  %-44s %s\n" "./localnh delete <id>" "Delete gallery entry and cached images"
+    printf "  %-44s %s\n" "./localnh delete purge" "Delete all galleries and cache"
+    printf "  %-44s %s\n" "./localnh pdf <id> <out_path>" "Export gallery to PDF"
+    printf "  %-44s %s\n" "./localnh html <id> <out_path>" "Export gallery to HTML"
+    printf "  %-44s %s\n" "./localnh snapshot export --offline" "Export DB/cache with writers stopped"
+    printf "  %-44s %s\n" "./localnh snapshot import <path> --offline" "Import with writers stopped"
     exit 1
 elif [ "$1" = "fetch" ]; then
     shift
