@@ -23,6 +23,8 @@ if ($method === 'HEAD') {
 }
 $lock = false; $tmp = null; $success = false;
 try {
+    // Hold the export slot and collection read guard for the complete worker lifetime.
+    // This prevents deletion/snapshot writers from changing files while the archive is read.
     $lock = localnh_job_lock('export');
     if (!$lock) localnh_job_error(503, 'An export is already running. Please retry shortly.');
     $root = localnh_job_root();

@@ -238,6 +238,17 @@ Login, browser preference toggles, and archiving also require POST and CSRF chec
 
 ---
 
+## Repairing incomplete galleries
+
+The CLI can check one archived gallery and fetch only missing page files:
+
+```bash
+./localnh repair <gallery_id>
+./localnh repair <gallery_id> --overwrite
+```
+
+`repair` uses the saved gallery metadata and does not replace existing pages unless `--overwrite` is specified. The command must be able to read and write `cache/images`; if the web container creates files under another UID or group, grant the host CLI user an ACL on that directory before running repair or personal export scripts.
+
 ## Credits & Acknowledgements
 
 - **API**: Based on the [nhentai API v2](https://nhentai.net/api/v2/docs).

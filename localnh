@@ -32,6 +32,13 @@ elif [ "$1" = "snapshot" ]; then
 elif [ "$1" = "storage" ]; then
     shift
     exec "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/storage.py" "$@"
+# Repair is a bounded single-gallery check; it never scans or rewrites the whole collection.
+elif [ "$1" = "check" ]; then
+    shift
+    exec "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/check.py" "$@"
+elif [ "$1" = "repair" ]; then
+    shift
+    exec "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/repair.py" "$@"
 elif [ "$1" = "stats" ] || [ "$1" = "--stats" ] || [ "$1" = "-s" ]; then
     shift
     exec "$PYTHON_EXEC" "$SCRIPT_DIR/script/py/stats.py" "$@"
@@ -42,6 +49,8 @@ elif [ -z "$1" ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     printf "  %-44s %s\n" "./localnh storage paths" "Show selected paths (no secrets)"
     printf "  %-44s %s\n" "./localnh storage init" "Explicitly initialize empty external storage"
     printf "  %-44s %s\n" "./localnh stats" "Display library statistics"
+    printf "  %-44s %s\n" "./localnh repair <id>" "Check and repair missing gallery pages"
+    printf "  %-44s %s\n" "./localnh check <id|all>" "Check cache completeness without changing files"
     printf "  %-44s %s\n" "./localnh delete <id>" "Delete gallery entry and cached images"
     printf "  %-44s %s\n" "./localnh delete purge" "Delete all galleries and cache"
     printf "  %-44s %s\n" "./localnh pdf <id> <out_path>" "Export gallery to PDF"

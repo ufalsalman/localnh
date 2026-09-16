@@ -152,3 +152,7 @@ Login, settings, logout, and archive confirmation forms require cookies and a va
 
 
 For external storage and the requirement to stop writers before snapshot export/import, see [STORAGE.md](STORAGE.md). Setting LOCALNH_DATA_DIR does not migrate an existing collection.
+
+## Repair an incomplete archive
+
+If an archive was interrupted or a page file was removed, run `./localnh repair <gallery_id>`. The command checks the saved metadata and repairs only missing pages. Existing files are preserved; use `--overwrite` only when you intentionally want to download them again. The CLI user needs read/write access to `cache/images`, including gallery subdirectories created by Docker.
