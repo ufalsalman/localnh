@@ -96,7 +96,9 @@ Open `http://localhost:8080` in your browser.
 2. Set up Python Virtual Environment:
    ```bash
    python3 -m venv venv
-   ./venv/bin/pip install -r requirements.txt
+   ./venv/bin/pip install --require-hashes --only-binary=:all: -r requirements-tools.lock
+   ./venv/bin/pip install --require-hashes --only-binary=:all: -r requirements.lock
+   ./venv/bin/pip check
    ```
 
 3. Initialize Configuration:
