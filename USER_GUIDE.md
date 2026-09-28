@@ -119,7 +119,7 @@ Because favorites and reading history are stored on your local browser device (`
 You can export galleries for offline reading in third-party comic apps:
 
 1. On any gallery page, click the **download** button (or navigate to `/download/<gallery_id>`).
-2. Choose your preferred format:
+2. Choose your preferred format. The page stays open while the browser prepares the file; a short status message clears after five seconds. The status timeout does not cancel the download, and you can return to the gallery using the link on the page.
    - **ZIP**: Standard compressed archive containing all WebP images.
    - **CBZ**: Comic Book ZIP archive compatible with comic and manga reader applications (e.g., Tachiyomi, Kuro Reader, CDisplayEx).
    - **PDF**: Single consolidated PDF document rendered with Pillow.

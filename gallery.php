@@ -272,7 +272,6 @@ if (isset($isDownloadPage) && $isDownloadPage) {
         <div class='cover'><a href='/g/<?= $id ?>/1'><img src='<?= $cover ?>' alt='cover'></a></div>
         <div class='info'>
             <h2><?= $titleHtml ?></h2>
-            <p id='status-text' class='ui-text'></p>
             <div id='options-group' class='action-btn-group wrap'>
                 <span class='ui-text download-label'>download as</span>
                 <button onclick="startDownload('zip')" class='action-btn'>zip</button>
@@ -280,17 +279,21 @@ if (isset($isDownloadPage) && $isDownloadPage) {
                 <button onclick="startDownload('pdf')" class='action-btn'>pdf</button>
                 <button onclick="startDownload('html')" class='action-btn'>html</button>
             </div>
+            <p id='status-text' class='ui-text' aria-live='polite' style='margin-top: 1.25rem'></p>
             <div class='back-link-wrapper'><a href='/g/<?= $id ?>' class='ui-text'>back to gallery</a></div>
         </div>
     </div>
     <iframe id='download-iframe' class='hidden'></iframe>
     <script>
+        let downloadStatusTimer;
         function startDownload(fmt) {
-            document.getElementById('download-iframe').src = '/download/<?= $id ?>?download=' + fmt;
-            document.getElementById('status-text').innerHTML = 'downloading ' + fmt + '...<br>redirecting in 5 seconds...';
-            document.getElementById('options-group').style.display = 'none';
-            setTimeout(function() {
-                window.location.href = '/g/<?= $id ?>';
+            const frame = document.getElementById('download-iframe');
+            const status = document.getElementById('status-text');
+            window.clearTimeout(downloadStatusTimer);
+            status.textContent = 'preparing download, keep this page open';
+            frame.src = '/download/<?= $id ?>?download=' + encodeURIComponent(fmt);
+            downloadStatusTimer = window.setTimeout(function() {
+                status.textContent = '';
             }, 5000);
         }
     </script>
