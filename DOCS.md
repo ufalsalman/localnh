@@ -2,6 +2,8 @@
 
 This document provides a technical overview of localnh, covering its architecture, database design, routing mechanisms, API endpoints, and client-side data management.
 
+For the complete current module map and development workflow, see [ARCHITECTURE.md](ARCHITECTURE.md) and [DEVELOPMENT.md](DEVELOPMENT.md). Known implementation gaps are tracked in [TASKS.md](TASKS.md).
+
 For installation topology, TLS origins, proxy trust, and operational rollback, see [DEPLOYMENT.md](DEPLOYMENT.md). Login session behavior is documented in [README.md](README.md#login-sessions).
 
 ---
@@ -68,7 +70,7 @@ localnh uses **SQLite 3** via PHP PDO. The database is initialized automatically
 | Column | Type | Description |
 | :--- | :--- | :--- |
 | `id` | `TEXT PRIMARY KEY` | nhentai gallery ID (numeric string) |
-| `title` | `TEXT` | Primary English / Latin sanitized title |
+| `title` | `TEXT` | Primary English / Latin title, escaped when rendered |
 | `title_jp` | `TEXT` | Native Japanese title (if available) |
 | `language` | `TEXT` | Primary language (`japanese`, `english`, etc.) |
 | `scanlator` | `TEXT` | Scanlation group or uploader name |
@@ -101,7 +103,7 @@ All incoming HTTP requests are processed through `index.php`:
 | URL Pattern | Handler | Purpose |
 | :--- | :--- | :--- |
 | `/` | `index.php` | Main catalogue list, search (`?q=`), and metadata filters (`?a=`, `?t=`, etc.) |
-| `/thumbnail?id=<id>&w=<width>` | `thumbnail.php` | On-demand WebP thumbnail (`320` or `640` px) with browser caching; no derivative file is stored |
+| `/thumbnail?id=<id>&w=<width>` | `thumbnail.php` | On-demand WebP thumbnail (`320` or `640` px) with browser caching and a bounded private temporary derivative cache |
 | `/g/<id>` | `gallery.php` | Gallery detail page and dynamic live download streamer |
 | `/g/<id>/<page>` | `reader.php` | Dedicated page viewer |
 | `/download/<id>` | `gallery.php` | Download format selector (ZIP / CBZ / PDF / HTML) |
@@ -114,14 +116,14 @@ All incoming HTTP requests are processed through `index.php`:
 | `/stats` | `stats.php` | Library statistics |
 | `/settings` | `settings.php` | Display preferences (theme, reading order) and admin toggles |
 | `/admin` | `admin.php` | Admin authentication login |
-| `/api/autocomplete` | `index.php` | Live JSON autocomplete suggestions |
-| `/api/favorites` | `index.php` | Batch validation of stored client favorite IDs against the database |
+| `/api/autocomplete` | `autocomplete.php` via `index.php` | Live JSON autocomplete suggestions |
+| `/api/favorites` | `favorites_api.php` via `index.php` | Batch validation of stored client favorite IDs against the database |
 
 ---
 
 ## Thumbnail Endpoint
 
-The page-preview grid on `/g/<id>` uses `GET /thumbnail` so it does not load every full-resolution reader image. The endpoint accepts a numeric `id`, an optional reader-style `page` (`0` selects the cover), `w=320|640`, and `mode=cover|fit`. Gallery previews use `mode=fit` to preserve each page's complete aspect ratio without cropping. It generates WebP bytes through libvips, validates that the database path stays under `cache/images`, and uses a private one-day browser cache with ETag revalidation. Generated thumbnails are never written to disk.
+The page-preview grid on `/g/<id>` uses `GET /thumbnail` so it does not load every full-resolution reader image. The endpoint accepts a numeric `id`, an optional reader-style `page` (`0` selects the cover), `w=320|640`, and `mode=cover|fit`. Gallery previews use `mode=fit` to preserve each page's complete aspect ratio without cropping. It generates WebP bytes through libvips, validates that the database path stays under `cache/images`, and uses a private one-day browser cache with ETag revalidation. Derivatives are written to a bounded private temporary cache outside collection data and snapshots, capped at 64 MiB and 512 files.
 
 ---
 
@@ -180,7 +182,7 @@ localnh stores user data on the client device to avoid requiring tracking accoun
 | `localnh_user` | JSON Object | `{"username": "...", "updated_at": "..."}` |
 | `localnh_favorites` | JSON Array | Array of bookmark objects containing metadata and `cum_count` |
 
-Users can back up or restore their full session at any time from the `/user` page via JSON snapshots.
+Users can back up or restore browser profile/favorites and the dark-mode/dynamic-color preferences from `/user` via JSON. This excludes admin sessions and collection images/database. Current array backups replace favorites on restore; the legacy object restore branch has a known persistence defect (see TASKS.md).
 
 ### 2. Browser Preference Cookies
 
@@ -226,7 +228,7 @@ Thumbnail keys include source path, content hash, width, mode and renderer versi
 
 archive_jobs.php admits web archive/delete before response output using the same filesystem flock as Python archive_runner.acquire. archive_stream.php starts fetch.py with an inherited descriptor and consumes bounded JSON events with heartbeat/disconnect checks. Event strings are JSON-escaped and the title uses textContent. The confirmation page shares the localnh topbar and lowercase UI, with confirm followed by a white cancel button.
 
-archive_runner.py validates the ID, rechecks existing rows after admission, owns the staging directory, and supervises one downloader process group for up to 900 seconds. The child keeps the inherited lock and Linux PR_SET_PDEATHSIG prevents it outliving a killed supervisor. The supervisor reaps the child before workspace cleanup. fetch.py reads upstream bodies incrementally with per-response and aggregate byte budgets, rejects incomplete page sets, converts inside staging, publishes complete files without replacing existing images, and commits SQLite before done. Web done events carry only the ID; CLI retains the detailed result. Failed publication may leave complete unreferenced files but never asks PHP to recursively delete a gallery. CLI delete participates in the archive lock; broader reader/export/delete consistency remains a separate concurrency concern.
+archive_runner.py validates the ID, rechecks existing rows after admission, owns the staging directory, and supervises one downloader process group for up to 900 seconds. The child keeps the inherited lock and Linux PR_SET_PDEATHSIG prevents it outliving a killed supervisor. The supervisor reaps the child before workspace cleanup. fetch.py reads upstream bodies incrementally with per-response and aggregate byte budgets, rejects incomplete page sets, converts inside staging, publishes complete files without replacing existing images, and commits SQLite before done. Web done events carry only the ID; CLI retains the detailed result. Failed publication may leave complete unreferenced files but never asks PHP to recursively delete a gallery. CLI delete participates in the archive lock and the exclusive collection reader guard; see “Coordinating collection operations” below for the current protocol and its limits.
 
 ## Collection aggregation and bounded lookup APIs
 

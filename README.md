@@ -23,18 +23,18 @@ Built with simplicity, speed, and privacy in mind. Written in vanilla PHP, SQLit
     - **Parodies** (`/?p=parody_name`)
     - **Circles/Groups** (`/?c=circle_name`)
     - **Languages** (`/?l=language_name`)
-  - Full-text search with instant autocomplete suggestions.
+  - Keyword search across titles, language, and tags, with autocomplete suggestions.
   - Quick external links to nhentai search directly from filter headers.
 - **Multi-Format Export**
   - Export and download galleries as **ZIP**, **CBZ** (Comic Book Archive), **PDF** (rendered with Pillow), or standalone **HTML** (self-contained offline web reader with embedded WebP Base64).
 - **Local Storage & Privacy**
-  - User session, reading count ("cum count"), and favorites stored locally in browser `localStorage`.
-  - JSON backup and restore functionality to easily transfer your library across devices without requiring cloud accounts.
+  - Browser profile, reading count ("cum count"), and favorites stored in `localStorage`; admin login sessions are validated on the server.
+  - JSON backup and restore transfers browser profile/favorites and theme preferences without cloud accounts. Use CLI snapshots to back up the archived database and images.
 - **Built-in Anti-Censorship & DoH**
   - Automatic DNS over HTTPS (DoH) support via Cloudflare (`1.1.1.1`) or custom resolvers to bypass ISP DNS poisoning.
   - Browser TLS fingerprint impersonation (`curl_cffi`) for reliable metadata and media downloads.
 - **RSS 2.0 Feed**
-  - Full RSS feed available at `/rss` to stay updated with newly archived entries.
+  - RSS feed of the latest 50 archived entries available at `/rss`.
 - **Powerful CLI Utility**
   - Manage archives, export snapshots, convert to PDF, and generate standalone HTML directly from terminal using `./localnh`.
 
@@ -42,11 +42,15 @@ Built with simplicity, speed, and privacy in mind. Written in vanilla PHP, SQLit
 
 ## Requirements
 
-- **PHP 8.1+** with extensions:
+- **Linux** for the archive and web-job supervisors (also provided by Docker).
+- **PHP 8.1+** with extensions/features:
   - `pdo_sqlite`
   - `gd`
   - `zip`
-- **Python 3.9+** with `venv`
+  - `fileinfo`, `posix`, and enabled `proc_open`
+  - GD WebP support and SQLite JSON functions
+- **Python 3.10+** with `venv` and compatible wheels for the locked dependencies.
+- **libvips tools** at `/usr/bin/vips` for thumbnails; web supervision also uses `/usr/bin/python3`.
 - **Web Server** (any of the following):
   - [Caddy](https://caddyserver.com) (Recommended)
   - Nginx + PHP-FPM
@@ -70,7 +74,7 @@ Built with simplicity, speed, and privacy in mind. Written in vanilla PHP, SQLit
    cp -r config.example config
    touch cache.sqlite
    ```
-Add your nhentai API token to `config/token`.
+Add your nhentai API token to `config/token`. Configure `config/credentials` with your admin username and password hash as shown under native setup; the example credentials are placeholders and public archiving defaults to off.
 
 3. Start the container:
    ```bash
@@ -120,6 +124,7 @@ Configure your credentials and nhentai API token:
 
 4. Start the Web Server:
    - **Using Caddy**:
+     The supplied Caddyfile targets the Docker layout (`/var/www/html` and PHP-FPM at `127.0.0.1:9000`). For native use, adapt the root/FPM listener and start PHP-FPM first, preserving routing through `index.php`, then run:
      ```bash
      caddy run
      ```
@@ -166,17 +171,17 @@ Open `http://localhost:8080` in your browser.
 
 ## Configuration Reference
 
-All settings are stored as plain text files in the `config/` directory:
+Site settings are stored as plain text files in the selected data root's `config/` directory. Storage/session paths and proxy trust use environment variables; see [Storage Guide](STORAGE.md) and [Deployment Guide](DEPLOYMENT.md).
 
 | File | Default | Description |
 | :--- | :--- | :--- |
 | `config/token` | *Required* | nhentai API Bearer Token |
 | `config/title` | `localnh` | Site name displayed in the top bar and `<title>` |
-| `config/domain` | `localhost` | Domain name used for metadata and snapshot manifests |
+| `config/domain` | `localhost` | Snapshot filename/manifest label; RSS and Open Graph URLs use the request host/scheme |
 | `config/credentials` | *Optional* | Admin login (`USER=...` and `PASS=...` with bcrypt hash) |
 | `config/public` | `off` | When set to `on`, allows public users to fetch/archive galleries |
 | `config/doh` | `https://1.1.1.1/dns-query` | Custom DNS-over-HTTPS resolver URL |
-| `config/favicon` | `/static/favicon.png` | Path or URL to the site favicon |
+| `config/favicon` | `/static/favicon.png` | Path or URL to the site favicon; supply this image yourself or clear the setting |
 | `config/footer` | *Markdown* | Custom footer text (supports Markdown links `[text](url)`) |
 
 ---
@@ -228,6 +233,8 @@ Login, browser preference toggles, and archiving also require POST and CSRF chec
 ---
 
 ## Documentation
+
+- **[Agent Guide](AGENTS.md)**: Reading order, coding constraints, validation, and links to architecture, development, task state, and decision records.
 
 - **[Storage Guide](STORAGE.md)**: Legacy/external paths, initialization, permissions, offline snapshots, verified migration and rollback before/after writes.
 

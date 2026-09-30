@@ -90,7 +90,7 @@ You can jump directly to any page number by appending the page to the URL: `/g/<
 
 ## Favorites and Reading Tracker
 
-localnh includes personal bookmarking and reading statistics that run entirely inside your browser without sending personal data to the server.
+localnh stores your profile, bookmarks and reading counts in your browser. The favorites page sends gallery IDs to the server to look up current metadata and detect orphaned bookmarks; it does not synchronize your profile or counts to a server account.
 
 - **Favorite Button**: Click "favorite" on any gallery page to bookmark it. View your collection on the `/favorites` page. If you unfavorite a gallery that has recorded reading counts, a confirmation prompt will appear to prevent accidental loss of your reading count.
 - **Cum Counter**: Click "cum" to record a reading completion session. The button dynamically tracks your total count (e.g., `cummed 3x`).
@@ -110,7 +110,7 @@ Because favorites and reading history are stored on your local browser device (`
 ### Restoring a Backup
 1. Go to `/user`.
 2. Click **restore**, select your previously exported `.json` backup file from your device.
-3. Your profile name, display preferences, and bookmarks will be merged and restored immediately.
+3. For current array-format backups, your profile name and bookmarks are restored; the imported bookmarks **replace** the existing list. Dark-mode and dynamic-color preferences are restored, but blur, reading direction and home sort are not included. Legacy object-format backups currently have a restore defect; see [TASKS.md](TASKS.md).
 
 ---
 
