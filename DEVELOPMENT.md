@@ -20,6 +20,16 @@ Do not copy templates over an existing configuration. Supply `config/token` for 
 
 PHP and Python must agree on `LOCALNH_DATA_DIR` / `LOCALNH_SESSION_DIR` and share compatible ownership. Legacy mode needs writable `cache/`, `snapshot/`, configuration for public-toggle changes, and the collection database and its parent. PHP creates the collection table on first request; the archive runner also creates it. External mode must be explicitly initialized/migrated first; see STORAGE. Do not repair permission failures with `chmod 777` or fall back to another data root.
 
+| Environment | Current meaning |
+| --- | --- |
+| `LOCALNH_DATA_DIR` | Empty/unset selects source-relative storage; otherwise use an initialized absolute external root. |
+| `LOCALNH_SESSION_DIR` | Empty/unset selects `<data-root>/sessions`; Docker sets `/var/lib/localnh/sessions`. |
+| `LOCALNH_TRUSTED_PROXIES` | Empty trusts no forwarded scheme; otherwise a comma-separated list of exact immediate proxy IPs. |
+| `VIPS_BLOCK_UNTRUSTED` | Docker sets `1` to disable libvips loaders marked untrusted; retain it in native thumbnail services. |
+| `LOCALNH_CONTAINER` | Docker sets `1` so root CLI invocations drop to `www-data` (except storage initialization). |
+
+These are process environment settings, not files loaded from `.env`. Use empty/unset rather than `0` for default paths: PHP and Python disagree on that literal value (TASKS). Compare the service and CLI environments before maintenance. Internal worker flags and inherited lock descriptors are managed by the supervisors, not deployment settings.
+
 ## Run and build
 
 ```sh

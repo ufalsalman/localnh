@@ -180,7 +180,7 @@ Site settings are stored as plain text files in the selected data root's `config
 | `config/domain` | `localhost` | Snapshot filename/manifest label; RSS and Open Graph URLs use the request host/scheme |
 | `config/credentials` | *Optional* | Admin login (`USER=...` and `PASS=...` with bcrypt hash) |
 | `config/public` | `off` | When set to `on`, allows public users to fetch/archive galleries |
-| `config/doh` | `https://1.1.1.1/dns-query` | Custom DNS-over-HTTPS resolver URL |
+| `config/doh` | `https://1.1.1.1/dns-query` | DNS-over-HTTPS resolver for archiving; the separate repair command currently hardcodes this default |
 | `config/favicon` | `/static/favicon.png` | Path or URL to the site favicon; supply this image yourself or clear the setting |
 | `config/footer` | *Markdown* | Custom footer text (supports Markdown links `[text](url)`) |
 
@@ -254,7 +254,9 @@ The CLI can check one archived gallery and fetch only missing page files:
 ./localnh repair <gallery_id> --overwrite
 ```
 
-`repair` uses the saved gallery metadata and does not replace existing pages unless `--overwrite` is specified. The command must be able to read and write `cache/images`; if the web container creates files under another UID or group, grant the host CLI user an ACL on that directory before running repair or personal export scripts.
+`repair` uses the saved gallery metadata and does not replace existing pages unless `--overwrite` is specified. Stop web/CLI activity first: repair does not participate in collection locks or the archive supervisor's safeguards. It repairs numbered pages, not covers, and can exit successfully despite individual failures; run `./localnh check <gallery_id>` afterward. See [known limitations](TASKS.md#known-issues).
+
+The command must be able to read and write `cache/images` in the selected data root; if the web container creates files under another UID or group, grant the host CLI user an ACL on that directory before running repair or personal export scripts.
 
 ## Credits & Acknowledgements
 

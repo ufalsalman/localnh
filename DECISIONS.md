@@ -1,6 +1,6 @@
 # Durable decisions
 
-Reconstructed 2026-09-30 from current source/configuration, Git through `fdb9e8b`, existing guides, ignored `plans/done/` security proposals, and accessible project-specific Codex/Antigravity history. Code is authoritative. “Confirmed” below means the rationale is explicitly supported by comments, documentation or historical discussion; it does not claim a fresh runtime test. Unknown alternatives are left unknown.
+Reconstructed 2026-09-30 from current source/configuration, Git through `5ff92cc` (application changes through `fdb9e8b`), existing guides, ignored `plans/done/` security proposals, and accessible project-specific Codex/Antigravity history. Code is authoritative. “Confirmed” means rationale explicitly supported by comments, documentation or historical discussion, not a fresh runtime test. Constraints describe the current implementation; they are not evidence that every alternative was historically considered. Unknown alternatives remain unknown.
 
 ## 1. PHP pages, Python processing, SQLite and plain browser scripts
 
@@ -14,7 +14,7 @@ Reconstructed 2026-09-30 from current source/configuration, Git through `fdb9e8b
 - **Decision:** Ship templates and stock HTTP port 8080, with private data and site-specific TLS/tunnel settings supplied at deployment.
 - **Rationale — confirmed:** Antigravity history requested a publishable source copy with example configuration and MIT licensing, excluding setup-specific fetch helpers. Later Codex history explicitly retained stock ports when synchronizing reviewed changes back to the repo.
 - **Constraints:** Docker copies source into the image; mounted Caddy configuration can override it. Updating host source alone does not update stock containers. A historical pubnix experiment required direct-PHP/subpath patches because server rewrites were unavailable; those patches are not supported by this checkout's routing policy.
-- **Rejected/superseded:** Do not import personal deployment paths, direct-PHP demo adaptations, or unrelated cartridge/reader projects into the source architecture.
+- **Historical boundary:** Personal deployment paths, direct-PHP demo adaptations, and unrelated cartridge/reader projects describe other targets, not this checkout's architecture.
 
 ## 3. One public entry point with an asset allowlist
 
@@ -34,7 +34,7 @@ Reconstructed 2026-09-30 from current source/configuration, Git through `fdb9e8b
 
 - **Decision:** Support an initialized external root while preserving legacy paths and logical `cache/images/...` references. Keep PHP/Python resolvers aligned. Storage changes never automatically migrate data.
 - **Rationale — confirmed:** `9099d1e`, STORAGE and staged Codex work separate path support, offline verified copying and deployment activation so a bad mount cannot silently create an empty replacement collection.
-- **Constraints:** Absolute disjoint roots, marker/schema/directories, compatible ownership, no data-child symlinks. Migration copies config/sessions as well as collection data; portable snapshots do not. Rollback after new writes requires a verified copy of the latest data.
+- **Constraints:** Absolute disjoint roots, marker/schema/directories, compatible ownership, no data-child symlinks. The current PHP/Python parsing mismatch for the literal environment value `0` is an implementation defect documented in TASKS, not an intentional exception to this decision. Migration copies config/sessions as well as collection data; portable snapshots do not. Rollback after new writes requires a verified copy of the latest data.
 - **Rejected:** Auto-initializing unknown existing roots, source symlinks into private data, and restoring stale pre-migration data after new writes.
 
 ## 6. Offline snapshots and recoverable activation
@@ -49,7 +49,7 @@ Reconstructed 2026-09-30 from current source/configuration, Git through `fdb9e8b
 - **Decision:** Keep `archive.lock` for writers/snapshots and `collection-read.lock` for long image readers versus destructive operations. Use nonblocking admission, per-job resource limits, fixed process arguments and inherited lock descriptors.
 - **Rationale — confirmed:** `1c0bf37`/`4f3f995` and code comments allow new archives without blocking existing readers while preventing deletion/import during exports. Supervisors keep locks across PHP death and kill/reap child groups; Linux parent-death signaling prevents an unsupervised direct child after supervisor death.
 - **Constraints:** Advisory local protocols, not distributed locks or filesystem/DB transactions. Ordinary static reads and later-added repair do not participate fully. Native PDF/HTML exports intentionally lack web job ceilings. Slow response delivery can occupy an export slot.
-- **Rejected:** Unbounded web work, releasing locks before children finish, and shell-string command construction. These workers are trusted fixed programs, not an arbitrary-code sandbox.
+- **Superseded behavior:** Earlier unbounded web work and shell-string invocation were replaced. **Current constraint:** Releasing locks before children finish defeats the implemented protection; this is an implication of the protocol, not a separately recovered historical decision. Workers are trusted fixed programs, not an arbitrary-code sandbox.
 
 ## 8. Thumbnail backpressure and memory headroom are deliberate
 
@@ -73,4 +73,6 @@ Reconstructed 2026-09-30 from current source/configuration, Git through `fdb9e8b
 
 ## Historical evidence boundaries
 
-The inspected Codex security conversation was titled “Review security fix plan”; relevant sessions span September 9–28. Antigravity's original “localnh” planning artifacts and publication-request history supplied early design intent. Their obsolete names, insecure old behavior, speculative designs, private values and reported regression counts were not carried forward as current contracts. The historical separate `localnh-test` deployment and its tests were absent during this review. `plans/done/` is ignored local material and may not exist in another clone; the durable conclusions are recorded here with tracked code/commit references.
+The inspected Codex security conversation was titled “Review security fix plan” (session `01a086be-dda2-77d3-af01-8115467f6f04`); relevant history spans September 9–28. Antigravity's original “localnh” history (conversation `42f40f6d-ddcc-4bc0-9c6b-d1ee5be06b2d`) and its `nhentai_library_plan.md`, `plan.md` and `learning_proposal.md` supplied early design intent and publication context. These identifiers aid retrieval when that local history is available; none is required to work on the repository.
+
+Obsolete names, insecure old behavior, speculative designs, private values and reported regression counts are not current contracts. The historical separate `localnh-test` deployment and its tests were absent during this review. `plans/done/` is ignored local material and may not exist in another clone; the durable conclusions are recorded above with tracked code/commit references.

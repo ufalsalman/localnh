@@ -1,10 +1,12 @@
 # Project state
 
-Evidence reviewed 2026-09-30 at `fdb9e8b`. Items below describe the source checkout, not the health or deployed version of a particular instance. No TODO/FIXME/XXX/HACK markers were found in the project-authored source. Archived plans and past conversations were reconciled with later code; they are not automatically open work.
+Evidence reviewed 2026-09-30 at `5ff92cc` (latest application change: `fdb9e8b`). Items below describe the source checkout, not the health or deployed version of a particular instance. No TODO/FIXME/XXX/HACK markers were found in the project-authored source. Archived plans and past conversations were reconciled with later code; they are not automatically open work.
+
+Review coverage: tracked source, manifests/locks, scripts, deployment files and documentation; recent Git history; project-specific Codex/Antigravity records described in DECISIONS. PHP/Python/JS/shell syntax and Compose/Caddy configuration checks passed in the first documentation pass (Caddy reported an existing formatting warning). The second pass directly reproduced the `0` environment mismatch below using storage helpers without opening databases. No image rebuild, live archive, browser regression or fresh vulnerability scan was performed; historical test results are not current validation.
 
 ### In progress
 
-- No active unfinished implementation is established by the current working tree or latest commit. Documentation reconstruction is complete in this change. Historical test/deployment checkpoints are not evidence that work is still running.
+- No active unfinished implementation is established by the reviewed source or latest application commit. Historical test/deployment checkpoints are not evidence that work is still running.
 
 ### Planned
 
@@ -12,6 +14,7 @@ Evidence reviewed 2026-09-30 at `fdb9e8b`. Items below describe the source check
 
 ### Known issues
 
+- **Storage environment parsing differs between PHP and Python.** `storage.php` uses PHP's truthiness fallback, so the literal string `0` selects the default data/session path. `script/py/storage.py` treats it as a nonempty relative path and rejects it. This was reproduced for both `LOCALNH_DATA_DIR` and `LOCALNH_SESSION_DIR`; no collection data was accessed. The fail-closed external-storage contract has this exception. Do not use `0` as a disabled value; empty/unset is the supported default.
 - **Repair bypasses collection coordination and crawler safeguards.** `script/py/repair.py` has no writer/reader locks, shared URL/metadata validation, byte/resource supervisor or shared 429 cooldown. It hardcodes Cloudflare DoH, uses saved `raw_api_data.pages` only (no legacy `images.pages` fallback), repairs numbered pages but not covers, and returns 0 even after individual page failures. Stop competing activity and run `check` afterward. Do not describe it as equivalent to the hardened fetch path.
 - **Browser backup restore has gaps.** In `user.php`, current favorite arrays replace the stored list rather than merge. The legacy object branch builds `cleanFavs` but never saves it. Only dark mode and dynamic color preferences are backed up/restored; blur, reading direction and home sort are absent. These are code-confirmed limitations, not completed fixes.
 - **HTML export omits current circle metadata.** `script/py/html.py` renders the `groups` category, while the crawler stores `circles`. Its reader is an independent LTR implementation, not the complete online reader with preferences. Embedded CSS still imports Google Fonts; images/readability work offline with fallback fonts.
@@ -33,6 +36,6 @@ Evidence reviewed 2026-09-30 at `fdb9e8b`. Items below describe the source check
 | `3e7a76b` | Browser thumbnail concurrency 1 and worker address-space limit 512 MiB |
 | `661de85` | CLI `check` and `repair` added, with limitations listed above |
 | `fdb9e8b` | Download page stays open during export; five-second timer only clears status |
-| This documentation change | Agent entry point, architecture/workflow/state/decision records; stale existing documentation corrected without application changes |
+| `5ff92cc`, followed by this documentation review | Agent entry point, architecture/workflow/state/decision records; stale claims and newly verified limitations documented without application changes |
 
 Historical Android/cartridge/static-reader experiments belong to separate projects. They are not planned localnh features merely because their conversations began in a localnh workspace.

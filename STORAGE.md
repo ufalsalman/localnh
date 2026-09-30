@@ -6,7 +6,7 @@ The application supports an external data directory. This is implementation supp
 
 With LOCALNH_DATA_DIR unset or empty, collection/config/cache/snapshot paths remain alongside the source. Existing installations keep working. Docker sessions continue to use the existing LOCALNH_SESSION_DIR default `/var/lib/localnh/sessions`.
 
-With LOCALNH_DATA_DIR set, it must be an absolute directory outside and disjoint from the source tree, with initialized metadata and a collection database. Relative paths, uninitialized/missing roots, source aliases, and unavailable storage fail rather than creating a different empty collection. Data child symlinks are unsupported. URLs and database image references remain `cache/images/<id>/<file>`; resolvers map them to disk without changing public URLs.
+With LOCALNH_DATA_DIR set, it must be an absolute directory outside and disjoint from the source tree, with initialized metadata and a collection database. Validation rejects relative paths, uninitialized/missing roots, source aliases, and unavailable storage. One current exception is the literal value `0`: PHP treats it as unset and selects legacy storage, whereas Python rejects it. `LOCALNH_SESSION_DIR=0` has the same fallback/rejection mismatch. Use an empty value or a valid absolute path, and verify selection in both PHP and CLI when changing deployment settings. Data child symlinks are unsupported. URLs and database image references remain `cache/images/<id>/<file>`; resolvers map them to disk without changing public URLs.
 
 ```text
 LOCALNH_DATA_DIR/

@@ -1,6 +1,6 @@
 # Architecture
 
-Verified against source at `fdb9e8b` (2026-09-28), reviewed 2026-09-30. This is an implementation map; [DOCS.md](DOCS.md) retains the schema/API/security detail, [STORAGE.md](STORAGE.md) the recovery procedures, and [DECISIONS.md](DECISIONS.md) the reasons behind the boundaries.
+Reviewed 2026-09-30 at `5ff92cc`; the latest application change is `fdb9e8b` (2026-09-28). This is an implementation map; [DOCS.md](DOCS.md) retains the schema/API/security detail, [STORAGE.md](STORAGE.md) the recovery procedures, and [DECISIONS.md](DECISIONS.md) the reasons behind the boundaries.
 
 ## Components and boundaries
 
@@ -50,7 +50,7 @@ Gallery recommendations are local weighted metadata overlap with random fallback
 | Profile/favorites/counters | Browser `localStorage`: `localnh_user`, `localnh_favorites`; not server-synced |
 | Display preferences | Cookies for theme, dynamic color, blur, reading direction, home sort |
 
-An empty/unset `LOCALNH_DATA_DIR` uses legacy source-relative data. A configured root must be absolute, disjoint from source, initialized with `.localnh-storage.json` version 1, and contain the expected directories/database. Invalid external storage fails, never silently falls back. PHP/Python resolvers must agree. Logical database paths and public URLs remain unchanged between layouts.
+An empty/unset `LOCALNH_DATA_DIR` uses legacy source-relative data. A configured root must be absolute, disjoint from source, initialized with `.localnh-storage.json` version 1, and contain the expected directories/database. External validation rejects invalid roots, with one known parsing exception: PHP treats the literal string `0` as unset, while Python rejects it. The same mismatch affects `LOCALNH_SESSION_DIR`; see TASKS. PHP/Python resolvers are intended to agree. Logical database paths and public URLs remain unchanged between layouts.
 
 `LOCALNH_SESSION_DIR` overrides the session path; otherwise it follows the data root. Docker explicitly defaults it to `/var/lib/localnh/sessions`. Collection snapshots contain only a SQLite backup plus chunked image tar data and a JSON manifest; import revokes sessions. The offline storage migrator instead copies configuration, collection, snapshots **and sessions**, verifies hashes/logical database dumps and ownership, and never switches deployment itself.
 

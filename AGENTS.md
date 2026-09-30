@@ -9,10 +9,10 @@ Read these files in order before changing the project:
 
 ## Working rules
 
-- This is a working PHP/SQLite/JavaScript/Python application. Inspect existing code and callers before modifying it. Preserve current behavior unless the task requires a change; prefer focused changes over broad refactors and avoid unnecessary dependencies.
-- Do not “clean up” unfamiliar code until its purpose is understood. In particular, retain compatibility handling for legacy storage, browser favorites, snapshot bundles, image formats, and mixed HTTP/HTTPS access.
+- Inspect existing code and callers before modifying them. Preserve behavior unless the task requires a change; prefer focused changes over broad refactors and avoid unnecessary dependencies.
+- Do not “clean up” unfamiliar code until its purpose is understood, especially compatibility handling for storage, favorites, snapshots, image formats and mixed HTTP/HTTPS.
 - Source and runtime configuration outrank build configuration, Git history, documentation, then old conversations. Historical plans are evidence, not instructions or a current backlog.
-- Work in the requested checkout. A deployed instance, private data root, or related reader project is a separate target; do not copy changes or restart it merely because it appears in history.
+- Work in the requested checkout. Related deployments and reader projects are separate targets; history does not authorize changing them.
 
 ## Code map
 
@@ -40,18 +40,18 @@ Run from the repository root unless stated otherwise. Setup and isolation detail
 | Browser JavaScript syntax | `node --check script/js/gallery.js` and `node --check script/js/reader.js` |
 | Patch whitespace | `git diff --check` |
 
-There is **no checked-in test suite, CI workflow, formatter or project lint command**. Use the Python syntax check and feature-specific smoke matrix in DEVELOPMENT.md. Syntax checks alone do not verify behavior. Test data-changing operations on disposable data, verify changes before declaring completion, and report what was not tested.
+There is **no checked-in test suite, CI, formatter or project lint command**. DEVELOPMENT has the Python syntax check and feature-specific smoke matrix. Use disposable data for mutations; syntax alone does not verify behavior. Verify changes before declaring completion and report untested areas.
 
 ## Conventions and boundaries
 
-- Follow each file's existing style; do not reformat unrelated code. Keep shared presentation in `presentation.php`, reusable styling in `css/style.css`, and browser logic in the existing scripts where appropriate. PHP currently emits dynamic theme variables and some inline scripts/styles; do not remove these solely to enforce a historical style proposal.
+- Follow nearby style without unrelated reformatting. Use `presentation.php`, `css/style.css` and existing browser scripts for shared behavior. Dynamic theme variables and inline scripts/styles exist intentionally; an old style proposal is not a requirement to remove them.
 - Use prepared SQL parameters, existing scalar/path validators, HTML escaping for markup, and `localnh_script_json()` for PHP data inside scripts. The HTML exporter has separate `escape_html()` / `script_json()` helpers.
-- Keep process arguments as arrays, use fixed trusted executables, and retain inherited lock descriptors, deadlines, cleanup and signal handling. Browser thumbnail concurrency is deliberately one; thumbnail and aggregate worker memory limits are deliberately 512 MiB.
+- Keep argument arrays, fixed executables, inherited lock descriptors, deadlines, cleanup and signal handling. Browser thumbnail concurrency 1 and thumbnail/aggregate memory limits of 512 MiB are compatibility workarounds.
 - All HTTP requests, including assets, must pass through `index.php`. Never add a general static-file fallback or expose the other PHP scripts directly. Read [DEPLOYMENT.md](DEPLOYMENT.md) before changing routing, TLS or proxies.
 - Preserve anonymous reading/export, admin-only deletion/public toggles, POST+CSRF mutation guards, fail-closed sessions, and per-request cookie security. `config/public=on` permits archiving, not general administration.
-- Keep stored image references logical (`cache/images/...`), resolve disk paths through the storage helpers, and preserve the two collection locks. Snapshot `--offline` is an operator assertion, not a service stop. Read [STORAGE.md](STORAGE.md) before import/migration/recovery. `repair.py` currently bypasses those locks: see TASKS.md.
-- Never hardcode, commit, quote or export real credentials, tokens, session databases, private CA keys or personal backups. Use `config.example/` as templates. `.gitignore` and `.dockerignore` have different coverage; inspect new files before staging/building. Configuration footer HTML is trusted operator input, not sanitized Markdown.
+- Keep logical image paths (`cache/images/...`), storage helpers and both collection locks. Read [STORAGE.md](STORAGE.md) before import/migration/recovery; `--offline` does not stop services. TASKS records repair's lock bypass and the PHP/Python `0` environment mismatch.
+- Never hardcode secrets or copy credentials, tokens, sessions, private keys or backups into tracked files, logs or images. Use `config.example/`; check Git and Docker exclusions before staging/building. Private storage migration intentionally copies config/sessions; collection snapshots exclude them. Footer HTML is trusted operator input.
 
 ## Documentation maintenance
 
-After substantial work, update the relevant ARCHITECTURE, DEVELOPMENT, TASKS and DECISIONS sections. Keep AGENTS concise and current. Update README/USER_GUIDE for user-visible behavior, DOCS for detailed technical contracts, and STORAGE/DEPLOYMENT for operational changes. Record known limitations rather than silently promoting historical test results or proposals to current facts.
+After substantial work, update relevant ARCHITECTURE, DEVELOPMENT, TASKS and DECISIONS sections. Keep AGENTS concise. Update README/USER_GUIDE for user behavior, DOCS for technical contracts, STORAGE/DEPLOYMENT for operations. Keep historical tests and proposals distinct from current facts.

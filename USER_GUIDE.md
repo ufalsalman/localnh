@@ -120,10 +120,10 @@ You can export galleries for offline reading in third-party comic apps:
 
 1. On any gallery page, click the **download** button (or navigate to `/download/<gallery_id>`).
 2. Choose your preferred format. The page stays open while the browser prepares the file; a short status message clears after five seconds. The status timeout does not cancel the download, and you can return to the gallery using the link on the page.
-   - **ZIP**: Standard compressed archive containing all WebP images.
+   - **ZIP**: Archive of available WebP page files, stored without additional compression. Missing files are skipped; the cover is not included separately.
    - **CBZ**: Comic Book ZIP archive compatible with comic and manga reader applications (e.g., Tachiyomi, Kuro Reader, CDisplayEx).
    - **PDF**: Single consolidated PDF document rendered with Pillow.
-   - **HTML**: Standalone, single-file offline web viewer. All metadata, thumbnails, and full-resolution WebP images are embedded as Base64 data URIs. It can be opened directly from any mobile or desktop file manager without requiring a server or internet connection.
+   - **HTML**: Single-file viewer with embedded cover/page images and selected metadata. It reads offline without a server, with a fallback font when Google Fonts is unavailable. Its controls are separate from the online reader; circle metadata is currently omitted. Missing images cannot be recovered by exporting.
 
 ---
 
@@ -155,4 +155,4 @@ For external storage and the requirement to stop writers before snapshot export/
 
 ## Repair an incomplete archive
 
-If an archive was interrupted or a page file was removed, run `./localnh repair <gallery_id>`. The command checks the saved metadata and repairs only missing pages. Existing files are preserved; use `--overwrite` only when you intentionally want to download them again. The CLI user needs read/write access to `cache/images`, including gallery subdirectories created by Docker.
+Stop web/CLI activity before running `./localnh repair <gallery_id>`; this command has no collection locks. It uses saved metadata to repair missing numbered pages, not covers. Existing files are preserved; use `--overwrite` only when you intentionally want to download them again. Run `./localnh check <gallery_id>` afterward because repair can report success despite individual failures. The CLI user needs read/write access to `cache/images` in the selected data root, including gallery subdirectories created by Docker. See [TASKS.md](TASKS.md#known-issues) for other repair limitations.
