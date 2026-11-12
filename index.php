@@ -170,6 +170,11 @@ if ($path === '/thumbnail' || $path === '/thumbnail/') {
             && is_file($filePath) && is_readable($filePath)) {
             header('Content-Type: ' . $types[strtolower(pathinfo($filePath, PATHINFO_EXTENSION))]);
             header('X-Content-Type-Options: nosniff');
+            // Cached artwork files are write-once (gallery-id directory names),
+            // so a long public TTL keeps logged-in and guest responses identical.
+            // Without it, Cloudflare declines to cache cookie-bearing responses
+            // and browsers fall back to Last-Modified heuristics.
+            header('Cache-Control: public, max-age=31536000, immutable');
             header('Content-Length: ' . filesize($filePath));
             if ($_SERVER['REQUEST_METHOD'] !== 'HEAD') readfile($filePath);
             exit;
